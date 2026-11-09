@@ -36,6 +36,11 @@
         "category": "AgentLens"
       },
       {
+        "command": "agentlens.clearHistory",
+        "title": "Clear Activity History",
+        "category": "AgentLens"
+      },
+      {
         "command": "agentlens.sendMockEvent",
         "title": "Send Mock Pre-edit Event for Active File",
         "category": "AgentLens"

@@ -17,7 +17,7 @@ export interface SessionManagerOptions {
   readonly maxSessions?: number;
 }
 
-type ChangeListener = (session: SessionInfo) => void;
+type ChangeListener = () => void;
 
 function sessionKey(agentId: string, sessionId: string): string {
   return JSON.stringify([agentId, sessionId]);
@@ -55,9 +55,7 @@ export class SessionManager {
     this.sessions.delete(key);
     this.sessions.set(key, updated);
     this.evictOverflow();
-    this.listeners.forEach((listener) => {
-      listener(updated);
-    });
+    this.notify();
     return updated;
   }
 
@@ -69,9 +67,23 @@ export class SessionManager {
     return [...this.sessions.values()].sort((a, b) => b.lastSeen - a.lastSeen);
   }
 
+  clear(): void {
+    if (this.sessions.size === 0) {
+      return;
+    }
+    this.sessions.clear();
+    this.notify();
+  }
+
   onDidChange(listener: ChangeListener): { dispose(): void } {
     this.listeners.add(listener);
     return { dispose: () => this.listeners.delete(listener) };
+  }
+
+  private notify(): void {
+    for (const listener of [...this.listeners]) {
+      listener();
+    }
   }
 
   private evictOverflow(): void {

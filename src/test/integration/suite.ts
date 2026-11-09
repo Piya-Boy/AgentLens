@@ -168,6 +168,22 @@ const cases: readonly TestCase[] = [
     },
   },
   {
+    name: "keeps event history and clears it with the clear history command",
+    run: async (api) => {
+      await delay(600);
+      const sent = await sendMockEvent(fixtureFile());
+      assert.equal(sent?.accepted, true);
+      const newest = api.history()[0];
+      assert.ok(newest);
+      assert.equal(newest.status === "started" || newest.status === "observed", true);
+      assert.ok(api.history().length > 0);
+
+      await vscode.commands.executeCommand("agentlens.clearHistory");
+      assert.equal(api.history().length, 0);
+      assert.equal(api.sessions().length, 0);
+    },
+  },
+  {
     name: "exposes default configuration",
     run: () => {
       const section = vscode.workspace.getConfiguration("agentlens");

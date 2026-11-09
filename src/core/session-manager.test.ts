@@ -104,6 +104,21 @@ describe("SessionManager", () => {
     expect(() => new SessionManager({ maxSessions })).toThrow(RangeError);
   });
 
+  it("clears all sessions and notifies once, but not when already empty", () => {
+    const manager = new SessionManager();
+    const listener = vi.fn();
+    manager.onDidChange(listener);
+
+    manager.clear();
+    expect(listener).not.toHaveBeenCalled();
+
+    manager.record(event());
+    listener.mockClear();
+    manager.clear();
+    expect(manager.list()).toEqual([]);
+    expect(listener).toHaveBeenCalledOnce();
+  });
+
   it("notifies listeners on every change until disposed", () => {
     const manager = new SessionManager();
     const listener = vi.fn();

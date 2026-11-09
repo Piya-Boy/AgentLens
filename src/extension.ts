@@ -3,11 +3,13 @@ import * as vscode from "vscode";
 import { readConfig } from "./config";
 import { FocusController } from "./controllers/focus-controller";
 import { openFileForObservation } from "./controllers/vscode-file-opener";
+import { ActivityStore } from "./core/activity-store";
 import { EnabledState } from "./core/enabled-state";
 import { FilesystemDetector } from "./detectors/filesystem-detector";
 import { PauseState } from "./core/pause-state";
 import { EventManager, type IngestResult } from "./core/event-manager";
 import { createMockEvent } from "./core/mock-event";
+import type { AgentFileEvent } from "./models/agent-file-event";
 import { SessionManager, type SessionInfo } from "./core/session-manager";
 import { workspaceRoots } from "./workspace";
 
@@ -17,6 +19,7 @@ export interface AgentLensApi {
   isEnabled(): boolean;
   isPaused(): boolean;
   sessions(): readonly SessionInfo[];
+  history(): readonly AgentFileEvent[];
 }
 
 function describeError(error: unknown): string {
@@ -28,6 +31,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
   const enabledState = new EnabledState(context.workspaceState);
   const pauseState = new PauseState();
   const sessionManager = new SessionManager();
+  const activityStore = new ActivityStore();
   const eventManager = new EventManager({
     getWorkspaceRoots: workspaceRoots,
     reportListenerError: (error) => {
@@ -100,6 +104,11 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     vscode.commands.registerCommand("agentlens.resume", () => {
       setPaused(false);
     }),
+    vscode.commands.registerCommand("agentlens.clearHistory", () => {
+      activityStore.clear();
+      sessionManager.clear();
+      output.appendLine("History cleared");
+    }),
     vscode.commands.registerCommand("agentlens.sendMockEvent", sendMockEvent),
     pauseState.onDidChange((paused) => {
       output.appendLine(`Focus ${paused ? "paused" : "resumed"}`);
@@ -109,6 +118,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     }),
     eventManager.onEvent((event) => {
       sessionManager.record(event);
+      activityStore.add(event);
       output.appendLine(`Event ${event.status} ${event.action} ${event.filePath} (${event.agentId}/${event.sessionId})`);
       void focusController.handle(event);
     }),
@@ -123,6 +133,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     isEnabled: () => enabledState.isEnabled,
     isPaused: () => pauseState.isPaused,
     sessions: () => sessionManager.list(),
+    history: () => activityStore.list(),
   };
 }
 

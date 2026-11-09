@@ -60,7 +60,7 @@ Statuses in this document represent plans, not confirmation that features are co
 - [ ] Active Agents / Sessions view
 - [ ] Recent Activity TreeView
 - [ ] StatusBar
-- [ ] Event history
+- [x] Event history — in-memory, newest first, capped at 500 events, metadata only; `AgentLens: Clear Activity History` clears it and the session list. Not persisted across reloads yet
 - [ ] Filter by Agent, Session, and Action
 
 **Exit criteria:** Users can inspect activity and status from the UI.
