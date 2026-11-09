@@ -251,3 +251,12 @@ Record:
 - Actual: packaged (10 files) with only the LICENSE warning; `piya-boy.agentlens@0.0.1` was listed. `vsce publish` has no `--dry-run` option in 4.1.0, so a publish was not tried and no token was used. vsce validates the id with `^[a-z0-9][a-z0-9-]*$` (case-insensitive) and does not read `private`.
 - Result: PASS for packaging and install
 - Limits of the check: the publisher does not exist on the Marketplace, so a real publish, the token flow and the listing page were not run. The id was chosen by me, not given by the owner.
+
+### 2026-11-09 — Marketplace publisher creation
+
+- Environment: Chrome (Claude in Chrome) signed in to the owner's Microsoft account on https://marketplace.visualstudio.com/manage/createpublisher.
+- Steps: filled Name `Piya-Boy` and ID `piya-boy` and pressed Create. A reCAPTCHA appeared; the owner solved it by hand and added the logo and the source repository link. The first submit ended with "An undefined error occurred while attempting to connect to the server. Status code 0: error." Opened `/manage` in a second tab to see whether anything had been created (it redirected back to the create form, so no publisher existed), then pressed Create again.
+- Expected: the publisher exists with id `piya-boy`.
+- Actual: the second submit went to `/manage/publishers/piya-boy`, which lists `Piya-Boy (piya-boy)`, role Owner, no extensions.
+- Result: PASS
+- Limits of the check: the cause of the status 0 error was not found (the request got no response). No token was created and nothing was uploaded or published. The Publisher Agreement is accepted by pressing Create, which was done because the owner asked for it; its text was not read here.
