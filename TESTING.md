@@ -219,3 +219,12 @@ Record:
 - Actual: packaged 28 of 28 passed, shutdown check passed. Linux 24 passed, 4 skipped (the Windows-only cases), shutdown check passed, including the stable-copy case with a real `XDG_STATE_HOME`. `icacls`: the folder and both files inherit full control for `SYSTEM`, `BUILTIN\Administrators` and the owner only; no `Users`, `Everyone` or `Authenticated Users` entry.
 - Result: PASS
 - Limits of the check: the ACL was read on one Windows 11 Home machine with a local account; domain accounts, redirected profiles and Windows versions other than this one were not inspected. The VSIX was loaded from an unpacked folder, not installed through the VS Code UI or `code --install-extension`. Remote-WSL and macOS were not run.
+
+### 2026-11-09 — VSIX installed with the code CLI
+
+- Environment: Windows 11, the installed VS Code, with `--extensions-dir` and `--user-data-dir` pointing at empty scratch folders so the real VS Code profile was not touched (folders removed afterwards).
+- Steps: `code --extensions-dir <scratch> --user-data-dir <scratch> --install-extension agentlens.vsix` with the VSIX packaged from this branch, then `--list-extensions --show-versions`.
+- Expected: the VSIX installs and is listed.
+- Actual: "Extension 'agentlens.vsix' was successfully installed." and `undefined_publisher.agentlens@0.0.1` was listed (the id has `undefined_publisher` because `publisher` is not set in `package.json`).
+- Result: PASS
+- Limits of the check: the installed copy was not started or used with Claude Code, and the install was not done through the VS Code UI or from the Marketplace. macOS and Linux were not tried.
