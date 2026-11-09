@@ -59,15 +59,24 @@ async function sendMockEvent(filePath: string): Promise<IngestOutcome | undefine
 }
 
 const BURST_FILES = 500;
+const COVERAGE_FILES = 150;
 
 interface BurstResult {
   readonly writtenMs: number;
   readonly recorded: number;
   readonly maxLagMs: number;
   readonly heapDeltaMb: number;
+  /** File names with a recorded filesystem create event; only complete while history is below its cap. */
+  readonly createdFiles: ReadonlySet<string>;
+  readonly historyLength: number;
 }
 
-async function measureBurst(api: AgentLensApi, enabled: boolean, viewVisible: boolean): Promise<BurstResult> {
+async function measureBurst(
+  api: AgentLensApi,
+  enabled: boolean,
+  viewVisible: boolean,
+  fileCount: number,
+): Promise<BurstResult> {
   const batchSize = 100;
   const folder = vscode.workspace.workspaceFolders?.[0];
   assert.ok(folder, "fixture workspace is not open");
@@ -99,26 +108,42 @@ async function measureBurst(api: AgentLensApi, enabled: boolean, viewVisible: bo
   }, 25);
   const heapBefore = process.memoryUsage().heapUsed;
   const before = recorded();
+  const sinceMs = Date.now();
   const started = performance.now();
   try {
-    for (let offset = 0; offset < BURST_FILES; offset += batchSize) {
+    for (let offset = 0; offset < fileCount; offset += batchSize) {
       await Promise.all(
-        Array.from({ length: batchSize }, (_, index) =>
+        Array.from({ length: Math.min(batchSize, fileCount - offset) }, (_, index) =>
           fs.writeFile(path.join(directory, `f${String(offset + index)}.txt`), "x\n"),
         ),
       );
     }
     const writtenMs = performance.now() - started;
     if (enabled) {
-      await waitFor(() => recorded() - before >= BURST_FILES, 60000);
+      await waitFor(() => recorded() - before >= fileCount, 60000);
     }
     await waitForQuiet();
     await delay(enabled ? 0 : 3000);
+    const directoryKey = path.normalize(directory).toLowerCase();
+    const createdFiles = new Set(
+      api
+        .history()
+        .filter(
+          (event) =>
+            event.source === "filesystem" &&
+            event.action === "create" &&
+            event.timestamp >= sinceMs &&
+            path.normalize(path.dirname(event.filePath)).toLowerCase() === directoryKey,
+        )
+        .map((event) => path.basename(event.filePath)),
+    );
     return {
       writtenMs,
       recorded: recorded() - before,
       maxLagMs,
       heapDeltaMb: (process.memoryUsage().heapUsed - heapBefore) / (1024 * 1024),
+      createdFiles,
+      historyLength: api.history().length,
     };
   } finally {
     clearInterval(sampler);
@@ -485,7 +510,7 @@ const cases: readonly TestCase[] = [
     },
   },
   {
-    name: "records a burst of file creations without losing events or blocking the extension host",
+    name: "records a burst of file creations without missing files or blocking the extension host",
     run: async (api) => {
       const scenarios = [
         { label: "AgentLens disabled", enabled: false, viewVisible: false },
@@ -493,18 +518,26 @@ const cases: readonly TestCase[] = [
         { label: "enabled, view visible", enabled: true, viewVisible: true },
       ];
       for (const scenario of scenarios) {
-        const result = await measureBurst(api, scenario.enabled, scenario.viewVisible);
+        const result = await measureBurst(api, scenario.enabled, scenario.viewVisible, BURST_FILES);
         console.log(
           `  burst (${scenario.label}): ${String(BURST_FILES)} files written in ${result.writtenMs.toFixed(0)} ms, ` +
             `recorded ${String(result.recorded)} events, history ${String(api.history().length)}, ` +
             `max host event-loop lag ${result.maxLagMs.toFixed(0)} ms, heap delta ${result.heapDeltaMb.toFixed(1)} MB`,
         );
         if (scenario.enabled) {
-          assert.ok(result.recorded >= BURST_FILES, `events were lost (${scenario.label})`);
+          assert.ok(result.recorded >= BURST_FILES, `fewer events than files were recorded (${scenario.label})`);
           assert.ok(api.history().length <= 500, "history is not capped");
           assert.ok(result.maxLagMs < 2000, `the extension host stalled for ${result.maxLagMs.toFixed(0)} ms (${scenario.label})`);
         }
       }
+
+      await vscode.commands.executeCommand("agentlens.clearHistory");
+      const coverage = await measureBurst(api, true, true, COVERAGE_FILES);
+      assert.ok(coverage.historyLength < 500, "history reached its cap, so per-file coverage cannot be checked");
+      const expected = Array.from({ length: COVERAGE_FILES }, (_, index) => `f${String(index)}.txt`);
+      const missing = expected.filter((name) => !coverage.createdFiles.has(name));
+      console.log(`  burst coverage: ${String(COVERAGE_FILES - missing.length)} of ${String(COVERAGE_FILES)} files have a create event`);
+      assert.deepEqual(missing, [], "files without a recorded create event");
     },
   },
   {

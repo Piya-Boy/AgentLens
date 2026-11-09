@@ -82,7 +82,6 @@ Record:
   - Replay result: one accepted event, agent `claude-code`, action `edit`, status `started`, source `adapter`, tool `Write`, correct path, no file content.
 - Result: PASS
 - Not covered: a live VS Code window with the installed hook receiving a real session (the receiving side was exercised by the integration test and by the replay above, not in the same run); other Claude Code versions; interactive (non-headless) mode; Unix sockets.
-
 ### 2026-11-09 — Filesystem fallback with real shells
 
 - Environment: Windows 11, VS Code 1.145.2 (integration host), Windows PowerShell 5.1 and PowerShell 7 installed
@@ -94,12 +93,12 @@ Record:
 ### 2026-11-09 — Filesystem watcher burst
 
 - Environment: Windows 11, VS Code 1.145.2 (integration host), fixture workspace on a local disk
-- Steps: the integration suite writes 1000 files in batches of 100 into a new folder under the fixture workspace in three scenarios (AgentLens disabled, enabled with the AgentLens view hidden, enabled with the view visible), sampling the extension host's event-loop lag every 25 ms and its heap before and after.
-- Expected: no events lost when enabled, history stays capped at 500, the extension host does not stall.
-- Actual (1000 files, one run):
-  - disabled: written in 17.9 s, lag 29 ms
-  - enabled, view hidden: written in 25.0 s, 2008 events recorded (create and change per file), lag 41 ms, heap delta -0.9 MB
-  - enabled, view visible: written in 36.2 s, 1933 events recorded, lag 24 ms, heap delta 2.1 MB
-  - 500-file runs gave lag of 21-26 ms. An earlier single run with the view opened right before sampling showed 909 ms once; it did not repeat.
-- Result: PASS (the committed test uses 500 files and fails if events are lost, history exceeds its cap, or lag reaches 2 s)
-- Not covered: CPU use of VS Code's file-watcher process, a real branch checkout, long-running memory, macOS and Linux.
+- Steps: the integration suite writes 500 files in batches of 100 into a new folder under the fixture workspace in three scenarios (AgentLens disabled, enabled with the AgentLens view hidden, enabled with the view visible), sampling the extension host's event-loop lag every 25 ms and its heap before and after. A fourth run clears the history and writes 150 files, few enough that all their events fit under the 500-event history cap, then checks every file name.
+- Expected: when enabled, at least as many events are recorded as files written; history stays capped at 500; the extension host does not stall (lag under 2 s); in the 150-file run every file has a `create` event in the history.
+- Actual:
+  - Earlier manual run with 1000 files: disabled 17.9 s, lag 29 ms; view hidden 25.0 s, 2008 events (create and change per file), lag 41 ms, heap delta -0.9 MB; view visible 36.2 s, 1933 events, lag 24 ms, heap delta 2.1 MB.
+  - Latest committed test (500 files): disabled 36.6 s, lag 23 ms; view hidden 9.2 s, 1015 events, lag 24 ms, heap delta 1.6 MB; view visible 17.3 s, 1044 events, lag 78 ms, heap delta 3.2 MB. Write times vary a lot between runs on this disk.
+  - 150-file coverage run: 150 of 150 files have a `create` event.
+  - An earlier single run with the view opened right before sampling showed a 909 ms lag once; it did not repeat and was not explained.
+- Result: PASS
+- Limits of the check: the 500-file scenarios assert only that the event count is at least the file count. Events are counted per session, so duplicates could hide a missing file there, and the 500-event history cap evicts older events, so per-file coverage is proved only by the 150-file run. Not covered: CPU use of VS Code's file-watcher process, a real branch checkout, long-running memory, macOS and Linux.
