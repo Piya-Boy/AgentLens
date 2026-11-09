@@ -1,4 +1,5 @@
-import type { AgentAction, AgentFileEvent } from "../../models/agent-file-event";
+import type { AgentAction } from "../../models/agent-file-event";
+import type { AdapterParseResult, AgentAdapter } from "../adapter";
 
 export const CLAUDE_AGENT_ID = "claude-code";
 
@@ -14,9 +15,7 @@ const ACTION_BY_TOOL: Readonly<Record<string, AgentAction>> = {
   Read: "read",
 };
 
-export type ClaudePreToolUseResult =
-  | { readonly ok: true; readonly event: AgentFileEvent }
-  | { readonly ok: false; readonly reason: "unsupported" | "malformed"; readonly detail: string };
+export type ClaudePreToolUseResult = AdapterParseResult;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -69,3 +68,5 @@ export function parseClaudePreToolUse(payload: unknown, now: number): ClaudePreT
     },
   };
 }
+
+export const claudeCodeAdapter: AgentAdapter = { id: CLAUDE_AGENT_ID, parse: parseClaudePreToolUse };

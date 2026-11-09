@@ -59,6 +59,6 @@ Never trust file paths from an adapter without validation.
 - [x] No source-code upload — no network, process or eval APIs in `src/` (checked by search on 2026-11-09); the only network use is the VS Code download of the integration test runner
 - [x] No secret logging — the output channel records paths, ids and tool names only; the Claude Code parser never copies `tool_input` content (tested)
 - [x] Safe storage — the only persisted value is the enabled flag in `workspaceState`; history and sessions are in memory and capped
-- [ ] Adapter failure isolation — listener errors are isolated and tested, but no running adapter exists yet to test a failing adapter end to end
+- [x] Adapter failure isolation — listener errors are isolated; `runAdapter` turns a throwing or malformed adapter into a reported `failed` result (unit-tested, including that a healthy adapter keeps working after a broken one). Only one real adapter exists, so isolation between two real adapters is tested with a fake
 - [x] No unsafe shell execution — no child process APIs in `src/`
 - [x] User configuration changes are explicit — the extension writes no settings and no agent configuration; installing a Claude Code hook is not implemented and needs explicit approval

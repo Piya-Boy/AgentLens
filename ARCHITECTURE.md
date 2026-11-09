@@ -82,13 +82,13 @@ An Adapter is responsible for translating Agent-specific events into the shared 
 ```ts
 interface AgentAdapter {
   readonly id: string;
-  start(): Promise<void>;
-  stop(): Promise<void>;
-  onEvent(listener: (event: AgentFileEvent) => void): void;
+  parse(payload: unknown, now: number): AdapterParseResult; // { ok: true, event } | { ok: false, reason, detail }
 }
 ```
 
-This contract is an initial proposal and must be adapted to fit the actual lifecycle and API of each integration.
+Implemented in `src/adapters/adapter.ts`. The first integration showed that an adapter is a pure translator and that the lifecycle (start, stop, listening) belongs to the transport, so the earlier `start`/`stop`/`onEvent` proposal was dropped (ADR-006). `runAdapter` calls `parse` and turns a thrown error or a malformed return value into a `failed` result, which the caller logs; one broken adapter therefore cannot stop the transport or other adapters. The Claude Code adapter is `claudeCodeAdapter`.
+
+Adding an agent means: a parser that implements `AgentAdapter` and never copies file content, a transport the agent actually offers (verified against its documentation), and tests with real payloads.
 
 ## 6. Event Pipeline
 

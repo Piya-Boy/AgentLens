@@ -52,3 +52,13 @@ Records of key decisions made in AgentLens, so that AI and other contributors un
 - `preview: true` is ignored when the user disabled preview editors, so every opened file then becomes a permanent tab. That is when trimming matters.
 
 **Consequences:** A file the user already had open is never registered as ours. A file the user later keeps (double-click) stays registered and can still be trimmed unless pinned or edited. Only the 1.145.2 host was exercised; the declared minimum (1.90) was not.
+
+## ADR-006: Adapters Are Parsers, Transports Are Separate
+
+**Status:** Accepted
+
+**Decision:** An adapter implements `parse(payload, now)` and nothing else. Receiving payloads (the hook script and local socket for Claude Code, the file watcher for the fallback) is done by transports that are not part of the adapter contract. Adapters run through `runAdapter`, which converts exceptions and invalid return values into a reported `failed` result.
+
+**Reason:** The initial proposal (`start`, `stop`, `onEvent`) had no second implementation to justify it, and the one real integration needs a transport that is shared plumbing (endpoint, size limits, timeouts), not adapter logic. A pure parser is easy to test with real payloads and cannot touch the file system or VS Code.
+
+**Consequences:** An agent whose events cannot be delivered as a payload to a parser would need a new transport design and a new ADR. Only one adapter exists, so the contract has not been tested against a second agent's shape.

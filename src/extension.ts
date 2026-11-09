@@ -20,7 +20,8 @@ import { FilesystemDetector } from "./detectors/filesystem-detector";
 import { PauseState } from "./core/pause-state";
 import { EventManager, type IngestResult } from "./core/event-manager";
 import { createMockEvent } from "./core/mock-event";
-import { parseClaudePreToolUse } from "./adapters/claude/pre-tool-use";
+import { runAdapter } from "./adapters/adapter";
+import { claudeCodeAdapter } from "./adapters/claude/pre-tool-use";
 import type { AgentFileEvent } from "./models/agent-file-event";
 import { SessionManager, type SessionInfo } from "./core/session-manager";
 import { HookListener } from "./transport/hook-listener";
@@ -104,7 +105,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
 
   const hookListener = new HookListener({
     onMessage: (message) => {
-      const parsed = parseClaudePreToolUse(message, Date.now());
+      const parsed = runAdapter(claudeCodeAdapter, message, Date.now());
       if (!parsed.ok) {
         output.appendLine(`Ignored hook message (${parsed.reason}): ${parsed.detail}`);
         return;
