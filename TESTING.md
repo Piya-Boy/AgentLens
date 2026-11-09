@@ -206,7 +206,7 @@ Record:
 - Expected: the hook entry names a path that does not change when the extension updates; the copy always equals the bundled script; the hook run by Claude Code from that path reaches the extension.
 - Actual: Windows unit suite 473 passed, 15 skipped (488; the skipped ones are Unix-only). Linux unit suite 488 passed, 0 skipped. Integration 28 of 28 on 1.145.2 and on 1.90.0, shutdown check passed. Real session: AgentLens recorded one `claude-code` event (`edit`, `started`, tool `Write`) 8.5 s after the session started and `notes.txt` was visible in an editor 109 ms later; the file then contained `two` and the session replied `done`. The same host printed 24 `[AgentHost:stderr] ... ERR_STREAM_DESTROYED` lines that the earlier real-session run did not. A later probe host that loaded an empty dummy extension instead of AgentLens printed the same error (4 lines), so it is VS Code's own agent host, not this extension.
 - Result: PASS
-- Limits of the check: an extension update was not simulated end to end (a second installed version and a real VS Code update); the unit test only shows that a new script replaces the old one at the same path. Two editors with different extension versions were not tried. Running the integration suite writes `hook.js` into `%LOCALAPPDATA%\agentlens` of the user who runs it, next to the endpoint secret. macOS and Remote-WSL were not run for this change.
+- Limits of the check: the update simulation below used the code CLI to install a second VSIX over the first, not VS Code's own update flow, and did not wait for VS Code to delete the obsolete version folder. Two editors with different extension versions were not tried. Running the integration suite writes `hook.js` into `%LOCALAPPDATA%\agentlens` of the user who runs it, next to the endpoint secret. macOS and Remote-WSL were not run for this change.
 
 ### 2026-11-09 — Re-run of the packaged, Linux and ACL checks after the stable hook path
 
@@ -228,3 +228,17 @@ Record:
 - Actual: "Extension 'agentlens.vsix' was successfully installed." and `undefined_publisher.agentlens@0.0.1` was listed (the id has `undefined_publisher` because `publisher` is not set in `package.json`).
 - Result: PASS
 - Limits of the check: the installed copy was not started or used with Claude Code, and the install was not done through the VS Code UI or from the Marketplace. macOS and Linux were not tried.
+
+### 2026-11-09 — Simulated extension update with a real Claude Code session
+
+- Environment: Windows 11, VS Code 1.145.2 host started with its own extensions folder, user-data folder and a scratch `LOCALAPPDATA` (so the real profile and the real hook copy were not touched), Claude Code 2.1.319 (`claude -p`, model haiku, `--permission-mode acceptEdits`). The extension was installed from a VSIX with `code --install-extension`, not loaded as a development extension, and the suite never called `activate()`.
+- Steps:
+  1. Package the branch as 0.0.1; package a second VSIX as 0.0.2 whose `dist/hook.js` has one extra comment line. Install 0.0.1.
+  2. Write the hook entry into a scratch project with the repository installer (it names `<scratch LOCALAPPDATA>/agentlens/hook.js`). The copy did not exist yet.
+  3. Phase A: start the host, wait for the extension to become active by itself, record the copy's and the bundled script's SHA-256, then run a headless Claude Code session that writes `a.txt` with the Write tool.
+  4. Install the 0.0.2 VSIX into the same extensions folder, leaving the settings file as it was.
+  5. Phase B: the same, writing `b.txt`.
+- Expected: the extension starts without being asked; the copy is created, then replaced with the new script; the settings entry does not change and does not name an extension folder; Claude Code's hook reaches the extension both before and after the update.
+- Actual: phase A: extension 0.0.1 active on its own, copy created, copy and bundled SHA both `c17585737…`, Claude Code event for `a.txt` after 6.8 s, file contained `A`. Phase B: extension 0.0.2 active on its own, copy SHA `13ca18b47…` equal to the new bundled script and different from before (the end of `hook.js` carries the 0.0.2 marker), the settings file byte-identical to its state before the update (compared with `cmp`), Claude Code event for `b.txt` after 12.5 s, file contained `B`. Neither entry named an extension folder.
+- Result: PASS
+- Limits of the check: the old 0.0.1 folder was still on disk during phase B (VS Code deletes obsolete versions later), so this run shows the entry no longer depends on the extension folder and that the copy follows the update, but it does not show a missing-folder failure that the old design would have had. The update was a CLI install, not VS Code's updater or the Marketplace. One machine, one Claude Code version, `LOCALAPPDATA` overridden for the host. Two editors with different versions were not tried.
