@@ -157,6 +157,8 @@ async function measureBurst(
 interface TestCase {
   readonly name: string;
   readonly platform?: NodeJS.Platform;
+  /** Resolves to the reason this machine cannot run the case, or undefined when it can. */
+  readonly skipReason?: () => Promise<string | undefined>;
   readonly run: (api: AgentLensApi) => Promise<void>;
 }
 
@@ -179,6 +181,42 @@ function runPowerShell(script: string): Promise<number | null> {
     child.on("error", reject);
     child.on("close", resolve);
   });
+}
+
+const WSL_TIMEOUT_MS = 60000;
+
+function toWslPath(windowsPath: string): string {
+  const match = /^([A-Za-z]):[\\/](.*)$/.exec(windowsPath);
+  assert.ok(match?.[1] !== undefined && match[2] !== undefined, `not a drive path: ${windowsPath}`);
+  return `/mnt/${match[1].toLowerCase()}/${match[2].replaceAll("\\", "/")}`;
+}
+
+/** Runs a POSIX shell script in the default WSL distribution without a shell on the Windows side. */
+function runWsl(script: string, timeoutMs: number): Promise<number | null> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("wsl.exe", ["--exec", "sh", "-c", script], { stdio: "ignore" });
+    const timer = setTimeout(() => {
+      child.kill();
+    }, timeoutMs);
+    child.on("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      resolve(code);
+    });
+  });
+}
+
+async function wslSkipReason(): Promise<string | undefined> {
+  const folder = path.dirname(fixtureFile());
+  try {
+    const code = await runWsl(`test -d '${toWslPath(folder)}'`, WSL_TIMEOUT_MS);
+    return code === 0 ? undefined : "WSL cannot see the fixture workspace under /mnt";
+  } catch (error) {
+    return `wsl.exe could not be started: ${error instanceof Error ? error.message : String(error)}`;
+  }
 }
 
 const cases: readonly TestCase[] = [
@@ -480,6 +518,39 @@ const cases: readonly TestCase[] = [
     },
   },
   {
+    name: "observes file creation, modification, rename and deletion made from WSL",
+    platform: "win32",
+    skipReason: wslSkipReason,
+    run: async (api) => {
+      const first = fixtureFile("external-wsl-a.txt");
+      const second = fixtureFile("external-wsl-b.txt");
+      const wslFirst = toWslPath(first);
+      const wslSecond = toWslPath(second);
+      const since = Date.now();
+      try {
+        const exitCode = await runWsl(
+          `echo created > '${wslFirst}'; sleep 0.7; echo more >> '${wslFirst}'; sleep 0.7; mv '${wslFirst}' '${wslSecond}'; sleep 0.7; rm '${wslSecond}'`,
+          WSL_TIMEOUT_MS,
+        );
+        assert.equal(exitCode, 0, "the WSL script failed");
+        await waitFor(
+          () =>
+            sawFilesystemEvent(api, first, "create", since) &&
+            sawFilesystemEvent(api, first, "edit", since) &&
+            sawFilesystemEvent(api, first, "delete", since) &&
+            sawFilesystemEvent(api, second, "create", since) &&
+            sawFilesystemEvent(api, second, "delete", since),
+          8000,
+        );
+        assert.equal(isFixtureVisible("external-wsl-a.txt"), false);
+        assert.equal(isFixtureVisible("external-wsl-b.txt"), false);
+      } finally {
+        await fs.rm(first, { force: true });
+        await fs.rm(second, { force: true });
+      }
+    },
+  },
+  {
     name: "observes files written by a command that runs inside a VS Code integrated terminal",
     run: async (api) => {
       const target = fixtureFile("external-terminal.txt");
@@ -722,6 +793,11 @@ export async function run(): Promise<void> {
   for (const testCase of cases) {
     if (testCase.platform !== undefined && testCase.platform !== process.platform) {
       console.log(`  SKIP ${testCase.name} (needs ${testCase.platform})`);
+      continue;
+    }
+    const skipReason = await testCase.skipReason?.();
+    if (skipReason !== undefined) {
+      console.log(`  SKIP ${testCase.name} (${skipReason})`);
       continue;
     }
     try {
