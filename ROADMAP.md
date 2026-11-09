@@ -20,7 +20,7 @@ Statuses in this document represent plans, not confirmation that features are co
 - [x] Define AgentFileEvent schema
 - [x] Event validation and path normalization — lexical only (absolute path, `..` collapse, workspace boundary, size limits); symlink resolution per SECURITY §2 is not implemented yet
 - [x] Event Manager — validate and dispatch with listener error isolation; not wired into the extension yet
-- [ ] Session Manager
+- [x] Session Manager — in-memory, keyed by agent and session id, capped at 50 sessions (least recently updated evicted); not wired into the extension or persisted yet
 - [ ] Event deduplication
 - [ ] Mock event command for testing
 - [ ] Focus Controller
