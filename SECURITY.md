@@ -71,8 +71,8 @@ Code was read, nothing was run; Unix socket behaviour, the real named-pipe ACL a
 
 | # | Severity | Finding | Status |
 | --- | --- | --- | --- |
-| 1 | medium | The hook endpoint name is a hash of a public path, so another local user could take the name and receive events, or stop the real listener from starting | fixed: the name is an HMAC of the workspace path under the per-user secret; the hook sends nothing when no secret exists. On Windows the secret relies on the per-user access rights of `%LOCALAPPDATA%`; the mode, owner and readability checks run only on Unix and were not run there. The named pipe's own access rights were not inspected |
-| 2 | low | On Linux without `XDG_RUNTIME_DIR` the hook trusts a socket folder another user may have created first | fixed by 1: a socket name cannot be guessed without the secret. Not run on Unix |
+| 1 | medium | The hook endpoint name is a hash of a public path, so another local user could take the name and receive events, or stop the real listener from starting | fixed: the name is an HMAC of the workspace path under the per-user secret; the hook sends nothing when no secret exists. On Windows the secret relies on the per-user access rights of `%LOCALAPPDATA%`; the mode, owner and readability checks run only on Unix and passed in a later Linux (WSL2) unit run. The named pipe's own access rights were not inspected |
+| 2 | low | On Linux without `XDG_RUNTIME_DIR` the hook trusts a socket folder another user may have created first | fixed by 1: a socket name cannot be guessed without the secret. A Linux (WSL2) unit run covered the socket directory checks (mode, symbolic link) and a hook-to-socket process test with `XDG_RUNTIME_DIR` set; the fallback to the temp directory when it is unset and the owned-by-another-user branch were not run |
 | 3 | medium | The installer's fixed temporary name followed symlinks and `.claude` was not checked | fixed |
 | 4 | low | Rewriting settings loosened the file mode | fixed |
 | 5 | low | Hook command quoting unsafe for paths containing `"`, backtick, `$`, `%`, `!` | fixed (install refuses such paths) |

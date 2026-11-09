@@ -105,6 +105,17 @@ Record:
 - Result: PASS on 1.145.2 (26/26). The same three cases also passed on VS Code 1.90.0 (26/26, shutdown check passed).
 - Not covered: a Remote-WSL window (the extension host would run inside WSL), the POSIX variants of the terminal tests, other WSL distributions, macOS and Linux.
 
+### 2026-11-09 — Unit suite on Linux (WSL2)
+
+- Environment: WSL2 distribution `Ubuntu-restored` (kernel 6.18.54.1-microsoft-standard-WSL2). Node.js 24.22.1 linux-x64 was downloaded from nodejs.org and checked against its `SHASUMS256.txt`. Everything lived under `/tmp` (tmpfs, so real Unix modes): the Node tarball, a `git archive HEAD` copy of the repository, and `HOME` and the npm cache for `npm ci`. Nothing was installed system-wide and no distribution setting was changed; the folder was removed afterwards.
+- Steps: `npm ci`, then `npm run lint`, `npm run typecheck`, `npm run build` and `npx vitest run` in that copy. The copy's `src/` was compared with the working tree and had no differences.
+- Expected: all tests pass, including the ones Windows skips (secret file mode and owner checks, socket permissions, installer file mode, file-symlink refusal).
+- Actual: lint, typecheck and build clean; 413 passed, 0 skipped (Windows: 404 passed, 9 skipped). New tests added in this change:
+  - `src/hook/claude-hook-process.test.ts`: bundles `src/hook/claude-hook.ts` with esbuild into a temp folder, runs it as a child process with an isolated home, state and runtime folder, and checks that it delivers only tool, session and path to an `IpcServer` (named pipe on Windows, Unix socket on Linux), finds a parent folder's window, prints nothing, exits 0, and sends nothing when there is no secret or the listener uses a different secret. 5 tests, pass on both platforms.
+  - `src/transport/ipc-server.test.ts`: a socket directory that group or others can access is refused, and so is one that is a symbolic link (Unix only). Mutation check: removing the mode check in the Linux copy made the first test fail; restoring it made the file pass again.
+- Result: PASS
+- Not covered: macOS; the fallback to the temp directory when `XDG_RUNTIME_DIR` is unset (the process test sets it); the branches that need another user (socket directory or secret owned by someone else); integration tests on Linux (no VS Code was run there); a Remote-WSL window; Windows named-pipe access rights.
+
 ### 2026-11-09 — Declared minimum VS Code version (1.90.0)
 
 - Environment: Windows 11, VS Code 1.90.0 downloaded by the test runner (`VSCODE_TEST_VERSION=1.90.0 npm run test:integration`; `resources/app/package.json` reports 1.90.0), Node.js 24.22.1 for the runner

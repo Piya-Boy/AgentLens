@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdtemp, rm, stat } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, stat, symlink } from "node:fs/promises";
 import * as net from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -30,6 +30,18 @@ function newEndpoint(): string {
     uid: typeof process.getuid === "function" ? process.getuid() : 0,
     secret: "b".repeat(64),
   });
+}
+
+/** An endpoint whose socket directory no other test shares, so a test can damage it. */
+async function isolatedEndpoint(): Promise<{ endpoint: string; directory: string }> {
+  const isolated = await mkdtemp(path.join(runtimeDir, "iso-"));
+  const endpoint = endpointForRoot(`/test-root/${randomUUID()}`, {
+    platform: process.platform,
+    runtimeDir: isolated,
+    uid: typeof process.getuid === "function" ? process.getuid() : 0,
+    secret: "b".repeat(64),
+  });
+  return { endpoint, directory: path.dirname(endpoint) };
 }
 
 async function startServer(endpoint: string) {
@@ -168,6 +180,27 @@ describe("IpcServer", () => {
     const socketMode = (await stat(endpoint)).mode & 0o777;
     expect(directoryMode).toBe(0o700);
     expect(socketMode & 0o077).toBe(0);
+  });
+
+  it.skipIf(process.platform === "win32")("refuses a socket directory that group or others can access", async () => {
+    const { endpoint, directory } = await isolatedEndpoint();
+    await mkdir(directory, { recursive: true });
+    await chmod(directory, 0o755);
+
+    await expect(IpcServer.listen(endpoint, { onMessage: vi.fn(), reportError: vi.fn() })).rejects.toThrow(
+      /must not be accessible/,
+    );
+  });
+
+  it.skipIf(process.platform === "win32")("refuses a socket directory that is a symbolic link", async () => {
+    const { endpoint, directory } = await isolatedEndpoint();
+    const elsewhere = await mkdtemp(path.join(runtimeDir, "elsewhere-"));
+    await chmod(elsewhere, 0o700);
+    await symlink(elsewhere, directory);
+
+    await expect(IpcServer.listen(endpoint, { onMessage: vi.fn(), reportError: vi.fn() })).rejects.toThrow(
+      /not a plain directory/,
+    );
   });
 
   it("refuses to take over an endpoint that is served by a live instance", async () => {
