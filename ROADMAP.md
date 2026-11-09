@@ -75,7 +75,7 @@ Statuses in this document represent plans, not confirmation that features are co
 - [x] Focus queue and arbitration — latest-wins queue: while a cooldown is running only the most recent requested file is kept and opened afterwards; pausing or setting the mode to `off` drops it
 - [x] Debounce / cooldown — `agentlens.focusCooldownMs` (default 1000 ms, 0 disables) between automatic opens; unit-tested with fake timers, not measured against a real agent
 - [x] Manual mode — `agentlens.focusMode: "notify"` shows a notification (`<agent> is about to edit <file>.`) with an Open button instead of opening the file; Open uses a preview tab and takes input focus because the user asked for it. Shares the cooldown and latest-wins queue. Replaces the boolean `agentlens.autoFocus` (never released, no migration). Unit-tested (291) and integration-tested that notify/off record the event without opening; the notification itself and the Open click were not driven in a real window
-- [ ] Prevent stealing the active editor
+- [x] Prevent stealing the active editor — in `auto` mode an open is deferred while the user has edited the active document (left unsaved) within the last 3 s; it re-checks every 500 ms, opens only the latest requested file once they stop, and is dropped after 10 s of continuous typing. Notifications are never deferred. Unit-tested with fake timers (305) and integration-tested by typing into a real editor (the test failed before the dirty-flag fix, so it does detect the behaviour). Not detected: typing in the terminal, a clean active document, or other windows (VS Code exposes no API for those)
 - [ ] Tab safety evaluation
 - [ ] Max tabs setting (default 5)
 - [ ] Never close pinned/dirty/active/agent-working tabs

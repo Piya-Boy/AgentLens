@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgentFileEvent } from "../models/agent-file-event";
-import { FocusController, parseFocusMode, type FocusMode } from "./focus-controller";
+import { BUSY_RETRY_MS, FocusController, MAX_DEFER_MS, parseFocusMode, type FocusMode } from "./focus-controller";
 
 function event(overrides: Partial<AgentFileEvent> = {}): AgentFileEvent {
   return {
@@ -20,6 +20,7 @@ function createController(
   options: {
     mode?: FocusMode;
     paused?: boolean;
+    busy?: boolean;
     cooldownMs?: number;
     openFile?: (filePath: string) => Promise<void>;
     notifyFile?: (event: AgentFileEvent) => void;
@@ -28,15 +29,17 @@ function createController(
   const openFile = vi.fn(options.openFile ?? (() => Promise.resolve()));
   const notifyFile = vi.fn(options.notifyFile ?? (() => undefined));
   const reportError = vi.fn();
+  const user = { busy: options.busy ?? false, paused: options.paused ?? false };
   const controller = new FocusController({
     openFile,
     notifyFile,
-    isPaused: () => options.paused ?? false,
+    isPaused: () => user.paused,
+    isUserBusy: () => user.busy,
     getMode: () => options.mode ?? "auto",
     getCooldownMs: () => options.cooldownMs ?? 0,
     reportError,
   });
-  return { controller, openFile, notifyFile, reportError };
+  return { controller, openFile, notifyFile, reportError, user };
 }
 
 describe("parseFocusMode", () => {
@@ -111,6 +114,7 @@ describe("FocusController", () => {
       openFile,
       notifyFile,
       isPaused: () => false,
+      isUserBusy: () => false,
       getMode: () => mode,
       getCooldownMs: () => 0,
       reportError: vi.fn(),
@@ -241,6 +245,7 @@ describe("FocusController cooldown", () => {
       openFile,
       notifyFile: vi.fn(),
       isPaused: () => paused,
+      isUserBusy: () => false,
       getMode: () => "auto",
       getCooldownMs: () => 1000,
       reportError: vi.fn(),
@@ -261,6 +266,7 @@ describe("FocusController cooldown", () => {
       openFile,
       notifyFile: vi.fn(),
       isPaused: () => false,
+      isUserBusy: () => false,
       getMode: () => mode,
       getCooldownMs: () => 1000,
       reportError: vi.fn(),
@@ -282,6 +288,7 @@ describe("FocusController cooldown", () => {
       openFile,
       notifyFile,
       isPaused: () => false,
+      isUserBusy: () => false,
       getMode: () => mode,
       getCooldownMs: () => 1000,
       reportError: vi.fn(),
@@ -306,6 +313,7 @@ describe("FocusController cooldown", () => {
       openFile,
       notifyFile: vi.fn(),
       isPaused: () => false,
+      isUserBusy: () => false,
       getMode: () => "auto",
       getCooldownMs: () => 1000,
       reportError,
@@ -327,5 +335,124 @@ describe("FocusController cooldown", () => {
     await vi.advanceTimersByTimeAsync(5000);
 
     expect(openFile).toHaveBeenCalledExactlyOnceWith("/ws/a.ts");
+  });
+});
+
+describe("FocusController while the user is typing", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("defers the open instead of opening over the active editor", async () => {
+    const { controller, openFile } = createController({ busy: true });
+
+    expect(await controller.handle(event())).toEqual({ focused: false, reason: "deferred" });
+    expect(openFile).not.toHaveBeenCalled();
+  });
+
+  it("opens once the user stops typing", async () => {
+    const { controller, openFile, user } = createController({ busy: true });
+    await controller.handle(event());
+
+    await vi.advanceTimersByTimeAsync(BUSY_RETRY_MS);
+    expect(openFile).not.toHaveBeenCalled();
+
+    user.busy = false;
+    await vi.advanceTimersByTimeAsync(BUSY_RETRY_MS);
+    expect(openFile).toHaveBeenCalledExactlyOnceWith("/ws/a.ts");
+  });
+
+  it("opens only the latest file requested while deferred", async () => {
+    const { controller, openFile, user } = createController({ busy: true });
+    await controller.handle(event({ filePath: "/ws/a.ts" }));
+    expect(await controller.handle(event({ eventId: "e2", filePath: "/ws/b.ts" }))).toEqual({
+      focused: false,
+      reason: "queued",
+    });
+
+    user.busy = false;
+    await vi.advanceTimersByTimeAsync(BUSY_RETRY_MS);
+
+    expect(openFile).toHaveBeenCalledExactlyOnceWith("/ws/b.ts");
+  });
+
+  it("gives up when the user keeps typing past the maximum wait", async () => {
+    const { controller, openFile, user } = createController({ busy: true });
+    await controller.handle(event());
+
+    await vi.advanceTimersByTimeAsync(MAX_DEFER_MS + BUSY_RETRY_MS);
+    user.busy = false;
+    await vi.advanceTimersByTimeAsync(BUSY_RETRY_MS * 4);
+
+    expect(openFile).not.toHaveBeenCalled();
+  });
+
+  it("opens at the maximum wait instead of dropping when the user paused just in time", async () => {
+    const { controller, openFile, user } = createController({ busy: true });
+    await controller.handle(event());
+
+    await vi.advanceTimersByTimeAsync(MAX_DEFER_MS - BUSY_RETRY_MS);
+    user.busy = false;
+    await vi.advanceTimersByTimeAsync(BUSY_RETRY_MS);
+
+    expect(openFile).toHaveBeenCalledExactlyOnceWith("/ws/a.ts");
+  });
+
+  it("accepts a new request after giving up", async () => {
+    const { controller, openFile, user } = createController({ busy: true });
+    await controller.handle(event({ filePath: "/ws/a.ts" }));
+    await vi.advanceTimersByTimeAsync(MAX_DEFER_MS + BUSY_RETRY_MS);
+    user.busy = false;
+
+    expect(await controller.handle(event({ eventId: "e2", filePath: "/ws/b.ts" }))).toEqual({ focused: true });
+    expect(openFile).toHaveBeenCalledExactlyOnceWith("/ws/b.ts");
+  });
+
+  it("drops the deferred file when focus is paused while waiting", async () => {
+    const { controller, openFile, user } = createController({ busy: true });
+    await controller.handle(event());
+
+    user.paused = true;
+    user.busy = false;
+    await vi.advanceTimersByTimeAsync(BUSY_RETRY_MS * 2);
+
+    expect(openFile).not.toHaveBeenCalled();
+  });
+
+  it("defers a file queued behind the cooldown when the user is typing at the end of it", async () => {
+    const { controller, openFile, user } = createController({ cooldownMs: 1000 });
+    await controller.handle(event({ filePath: "/ws/a.ts" }));
+    await controller.handle(event({ eventId: "e2", filePath: "/ws/b.ts" }));
+
+    user.busy = true;
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(openFile.mock.calls).toEqual([["/ws/a.ts"]]);
+
+    user.busy = false;
+    await vi.advanceTimersByTimeAsync(BUSY_RETRY_MS);
+    expect(openFile.mock.calls).toEqual([["/ws/a.ts"], ["/ws/b.ts"]]);
+  });
+
+  it("does not defer a notification, which cannot steal the editor", async () => {
+    const { controller, notifyFile, openFile } = createController({ busy: true, mode: "notify" });
+
+    expect(await controller.handle(event())).toEqual({ focused: false, reason: "notified" });
+    expect(notifyFile).toHaveBeenCalledOnce();
+    expect(openFile).not.toHaveBeenCalled();
+  });
+
+  it("cancels the wait on dispose", async () => {
+    const { controller, openFile, user } = createController({ busy: true });
+    await controller.handle(event());
+
+    controller.dispose();
+    user.busy = false;
+    await vi.advanceTimersByTimeAsync(MAX_DEFER_MS);
+
+    expect(openFile).not.toHaveBeenCalled();
   });
 });

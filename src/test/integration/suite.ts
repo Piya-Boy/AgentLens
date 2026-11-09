@@ -182,6 +182,35 @@ const cases: readonly TestCase[] = [
     },
   },
   {
+    name: "defers opening a file while the user is typing in the active editor and opens it afterwards",
+    run: async () => {
+      const typedFile = fixtureFile("other.txt");
+      const target = fixtureFile("sample.txt");
+      await vscode.commands.executeCommand("workbench.action.closeAllEditors");
+      await delay(1100);
+
+      const document = await vscode.workspace.openTextDocument(typedFile);
+      const editor = await vscode.window.showTextDocument(document, { preview: false });
+      try {
+        await editor.edit((builder) => {
+          builder.insert(new vscode.Position(0, 0), "typed by the user ");
+        });
+        assert.equal(document.isDirty, true);
+
+        const outcome = await sendMockEvent(target);
+        assert.equal(outcome?.accepted, true);
+        await delay(1300);
+        assert.equal(isFixtureVisible("sample.txt"), false, "file opened while the user was typing");
+
+        await waitFor(() => isFixtureVisible("sample.txt"), 8000);
+      } finally {
+        await vscode.window.showTextDocument(document, { preview: false });
+        await vscode.commands.executeCommand("workbench.action.revertAndCloseActiveEditor");
+      }
+      assert.equal(document.isDirty, false);
+    },
+  },
+  {
     name: "observes file changes made outside the extension as filesystem events without opening them",
     run: async (api) => {
       const target = fixtureFile("external-change.txt");

@@ -2,8 +2,10 @@ import { randomUUID } from "node:crypto";
 import * as vscode from "vscode";
 import { readConfig } from "./config";
 import { FocusController } from "./controllers/focus-controller";
+import { TypingTracker } from "./controllers/typing-tracker";
 import { offerFileForObservation } from "./controllers/vscode-file-notifier";
 import { openFileForObservation } from "./controllers/vscode-file-opener";
+import { watchTyping } from "./controllers/vscode-typing-listener";
 import { ActivityFilterState, type ActivityFilter } from "./core/activity-filter";
 import { ActivityStore } from "./core/activity-store";
 import { EnabledState } from "./core/enabled-state";
@@ -48,6 +50,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     },
   });
 
+  const typingTracker = new TypingTracker();
   const reportFocusError = (error: unknown): void => {
     output.appendLine(`Focus failed: ${describeError(error)}`);
   };
@@ -57,6 +60,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
       offerFileForObservation(event, reportFocusError);
     },
     isPaused: () => pauseState.isPaused,
+    isUserBusy: () => typingTracker.isBusy(),
     getMode: () => readConfig().focusMode,
     getCooldownMs: () => readConfig().focusCooldownMs,
     reportError: reportFocusError,
@@ -124,6 +128,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
   context.subscriptions.push(
     output,
     focusController,
+    watchTyping(typingTracker),
     filesystemDetector,
     hookListener,
     ...registerHookCommands(context.extensionPath, output),
