@@ -89,7 +89,21 @@ Record:
 - Steps: the integration suite runs a PowerShell script that creates, appends to, renames and deletes files in the fixture workspace, and runs a similar script as the command of a VS Code integrated terminal.
 - Expected: every change appears in the activity history as a `filesystem` event with the right action and path, no file is opened.
 - Actual: all expected events were recorded and nothing was opened. Result: PASS
-- Not covered: WSL; typing into an integrated terminal (`terminal.sendText` did not run the command in the test host, with or without a shell profile, so that approach was abandoned); macOS and Linux.
+- Not covered here: macOS and Linux. WSL and typed terminal input are in the next report. An earlier attempt to type into an integrated terminal did not produce a file; its cause was not isolated (see the next report for the version that works).
+
+### 2026-11-09 — WSL and typed terminal input
+
+- Environment: Windows 11, VS Code 1.145.2 (integration host), WSL2 distribution `Ubuntu-restored` (default), `E:` mounted at `/mnt/e`
+- Steps:
+  1. WSL: the suite runs `wsl.exe --exec sh -c` with a script that creates, appends to, renames and deletes files in the fixture workspace through `/mnt/e/...`. The case skips itself when `wsl.exe` cannot start or cannot see the fixture folder.
+  2. Typed input: the suite creates an interactive PowerShell terminal (`-NoProfile -NoLogo`), shows it, waits for the process id plus 4 s for the prompt, then types a script that creates, appends to and removes a file, once with `terminal.sendText` and once with the `workbench.action.terminal.sendSequence` command.
+- Expected: every operation appears as a `filesystem` event with the right action and path, and no file is opened.
+- Actual:
+  - WSL: create, edit, delete of the first file and create, delete of the renamed file were all recorded; nothing was opened.
+  - Typed input: both variants produced create, edit and delete events (the create event arrived about 0.4-0.5 s after typing). In a separate probe, typing `exit` closed PowerShell and cmd.exe terminals through both paths, so input does reach the shell.
+  - The first typed probe wrote create, edit and delete with no pause between them and recorded nothing; with 700 ms pauses it works. The watcher merges operations that happen within a few milliseconds. This probably explains the earlier failure, but that was not re-run to confirm.
+- Result: PASS on 1.145.2 (26/26). The same three cases also passed on VS Code 1.90.0 (26/26, shutdown check passed).
+- Not covered: a Remote-WSL window (the extension host would run inside WSL), the POSIX variants of the terminal tests, other WSL distributions, macOS and Linux.
 
 ### 2026-11-09 — Declared minimum VS Code version (1.90.0)
 
