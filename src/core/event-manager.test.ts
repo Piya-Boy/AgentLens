@@ -45,8 +45,28 @@ describe("EventManager", () => {
 
     const result = manager.ingest(validEvent({ filePath: "/etc/passwd" }));
 
-    expect(result).toEqual({ accepted: false, errors: ["filePath is outside the workspace"] });
+    expect(result).toEqual({
+      accepted: false,
+      reason: "invalid",
+      errors: ["filePath is outside the workspace"],
+    });
     expect(listener).not.toHaveBeenCalled();
+  });
+
+  it("drops duplicate events without notifying listeners", () => {
+    const { manager } = createManager();
+    const listener = vi.fn();
+    manager.onEvent(listener);
+
+    expect(manager.ingest(validEvent()).accepted).toBe(true);
+    expect(manager.ingest(validEvent())).toEqual({ accepted: false, reason: "duplicate" });
+    expect(listener).toHaveBeenCalledOnce();
+  });
+
+  it("does not let an invalid event poison deduplication", () => {
+    const { manager } = createManager();
+    expect(manager.ingest(validEvent({ filePath: "/etc/passwd" })).accepted).toBe(false);
+    expect(manager.ingest(validEvent()).accepted).toBe(true);
   });
 
   it("reads workspace roots at ingest time", () => {

@@ -21,7 +21,7 @@ Statuses in this document represent plans, not confirmation that features are co
 - [x] Event validation and path normalization — lexical only (absolute path, `..` collapse, workspace boundary, size limits); symlink resolution per SECURITY §2 is not implemented yet
 - [x] Event Manager — validate and dispatch with listener error isolation; not wired into the extension yet
 - [x] Session Manager — in-memory, keyed by agent and session id, capped at 50 sessions (least recently updated evicted); not wired into the extension or persisted yet
-- [ ] Event deduplication
+- [x] Event deduplication — same event id per agent/session, or identical content within a 500 ms window; bounded to 1000 entries; wired into Event Manager. The 500 ms window is a proposed default, not validated against a real agent
 - [ ] Mock event command for testing
 - [ ] Focus Controller
 - [ ] Auto Focus / Pause / Resume

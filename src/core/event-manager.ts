@@ -1,10 +1,12 @@
 import type { AgentFileEvent } from "../models/agent-file-event";
 import type { PathApi } from "../utils/path-utils";
+import { EventDeduplicator } from "./event-deduplicator";
 import { validateAgentFileEvent } from "./event-validator";
 
 export type IngestResult =
   | { readonly accepted: true; readonly event: AgentFileEvent }
-  | { readonly accepted: false; readonly errors: readonly string[] };
+  | { readonly accepted: false; readonly reason: "invalid"; readonly errors: readonly string[] }
+  | { readonly accepted: false; readonly reason: "duplicate" };
 
 export type EventListener = (event: AgentFileEvent) => void;
 
@@ -12,12 +14,16 @@ export interface EventManagerOptions {
   readonly getWorkspaceRoots: () => readonly string[];
   readonly reportListenerError: (error: unknown) => void;
   readonly pathApi?: PathApi;
+  readonly deduplicator?: EventDeduplicator;
 }
 
 export class EventManager {
   private readonly listeners = new Set<EventListener>();
+  private readonly deduplicator: EventDeduplicator;
 
-  constructor(private readonly options: EventManagerOptions) {}
+  constructor(private readonly options: EventManagerOptions) {
+    this.deduplicator = options.deduplicator ?? new EventDeduplicator();
+  }
 
   ingest(input: unknown): IngestResult {
     const result = validateAgentFileEvent(input, {
@@ -25,7 +31,10 @@ export class EventManager {
       ...(this.options.pathApi === undefined ? {} : { pathApi: this.options.pathApi }),
     });
     if (!result.ok) {
-      return { accepted: false, errors: result.errors };
+      return { accepted: false, reason: "invalid", errors: result.errors };
+    }
+    if (this.deduplicator.isDuplicate(result.event)) {
+      return { accepted: false, reason: "duplicate" };
     }
     this.dispatch(result.event);
     return { accepted: true, event: result.event };
