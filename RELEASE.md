@@ -4,11 +4,11 @@ Status: not released. Items marked **Owner** need a decision from the project ow
 
 ## Blockers found by a packaging dry run
 
-`npx @vscode/vsce@4.1.0 package --no-dependencies` produces a VSIX with the manifest, `package.json`, README, `dist/extension.js`, its source map, `dist/hook.js` (the Claude Code hook script, required by the installer) and `media/agentlens.svg`. It reports:
+`npx @vscode/vsce@4.1.0 package --no-dependencies` produces a VSIX with the manifest, `package.json`, README, `dist/extension.js`, its source map, `dist/hook.js` (the Claude Code hook script, required by the installer), `media/agentlens.svg` and the Marketplace icon `media/icon.png` (source: `media/icon.svg`). It reports:
 
 - `WARNING LICENSE, LICENSE.md, or LICENSE.txt not found` — **Owner:** choose a license and add the file. `package.json` currently says `UNLICENSED`.
 - `publisher` is not set in `package.json` — **Owner:** create or choose a Marketplace publisher. Required to publish, not to build a local VSIX.
-- No `icon` PNG for the Marketplace listing — **Owner:** provide a 128x128 PNG. The activity bar icon is an SVG and is separate.
+- Marketplace icon — done: `media/icon.png` (128x128 RGBA, rendered from `media/icon.svg`) is set as `icon` in `package.json`, and vsce no longer warns about it. **Owner:** confirm the design or replace both files; the activity bar icon is a separate SVG. The 16x16 rendering is muddy (the amber marker is not distinct); 32x32 and 128x128 are readable.
 
 ## Before every release
 
@@ -31,7 +31,7 @@ npx @vscode/vsce package --no-dependencies
 npx @vscode/vsce ls
 ```
 
-- [ ] The file list contains only `package.json`, `README.md`, `LICENSE`, `dist/extension.js`, `dist/extension.js.map`, `dist/hook.js` and `media/**`
+- [ ] The file list contains only `package.json`, `README.md`, `LICENSE`, `dist/extension.js`, `dist/extension.js.map`, `dist/hook.js` and `media/**` (the icon files `icon.png` and `icon.svg` are expected there)
 - [ ] No source code from `src/`, no `.vscode-test`, no fixtures, no logs
 - [ ] Install the VSIX in a clean VS Code profile and run `AgentLens: Enable`, `Disable`, `Pause Auto Focus` and the Activity Bar view
 
