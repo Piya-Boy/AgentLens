@@ -83,7 +83,7 @@ Statuses in this document represent plans, not confirmation that features are co
 
 **Exit criteria:** Focus and tab management cause no data loss and do not unnecessarily disrupt the user.
 
-**Evidence:** `npm test` 334 passed | 1 skipped; `test:integration` 20/20 in a real Extension Development Host, including typing deferral, notify/off, tab trimming and a pinned tab. No data-loss path was found, but the criterion is judged on automated tests only: no manual session with a real agent and a real user typing, one VS Code version, Windows only.
+**Evidence:** `test:integration` in a real Extension Development Host includes typing deferral, notify/off, tab trimming and a pinned tab (final run of the whole branch: 23/23, unit tests 399 passed | 7 skipped). No data-loss path was found, but the criterion is judged on automated tests only: no manual session with a real agent and a real user typing, one VS Code version, Windows only.
 
 ## Phase 6 — More Integrations and Hardening
 
@@ -92,8 +92,8 @@ Statuses in this document represent plans, not confirmation that features are co
 - [x] Generic adapter contract — `AgentAdapter` (`parse`) and `runAdapter` failure isolation in `src/adapters/adapter.ts`, Claude Code is `claudeCodeAdapter`; lifecycle left to transports (ADR-006). Validated against one real adapter only
 - [x] Multi-agent / multi-session tests — unit-level pipeline tests with interleaved Claude Code sessions, a second agent, filesystem observations, duplicates, rejections and a failing listener; no real second agent has been run
 - [x] Performance and resource usage review — core pipeline: 50,000 events in about 200 ms (about 250,000 events/s), heap delta under 1 MB, history capped at 500. Real watcher burst in the Extension Host (1000 files written in batches of 100, report in `TESTING.md`): no events lost, extension-host event-loop lag at most 41 ms with AgentLens disabled, enabled with the view hidden and enabled with the view visible, heap delta within about 3 MB. One earlier run showed a single 909 ms lag that did not reproduce in four later runs and was not explained. Not measured: CPU of VS Code's own file-watcher process, memory over hours of idle use, macOS and Linux; the test disk was slow (about 40-60 files/s), which may hide bursts that arrive faster
-- [ ] Security review — self-review against the SECURITY.md checklist done (8 of 9 items ticked there); an independent review and the adapter transport review are still pending
-- [x] Packaging and release checklist — `RELEASE.md`; a local VSIX builds (7 files). Publishing is blocked on the owner providing a publisher, a LICENSE and a Marketplace icon
+- [x] Security review — self-review against the SECURITY.md checklist (all 9 items ticked) plus an independent read-only review by a security agent on 2026-11-09 covering the transport, hook script, installer, path handling and adapters: 10 findings (2 medium, 8 low), 8 fixed, 1 accepted, 1 covered by another fix; log in `SECURITY.md` section 8. It is an AI code review: nothing was run, Unix sockets and the real named-pipe access rights were not assessed, and no human or penetration test was done
+- [x] Packaging and release checklist — `RELEASE.md`; a local VSIX lists the extension bundle, source map, `dist/hook.js` and icon. Publishing is blocked on the owner providing a publisher, a LICENSE and a Marketplace icon
 
 ## Definition of Done
 

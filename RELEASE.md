@@ -4,7 +4,7 @@ Status: not released. Items marked **Owner** need a decision from the project ow
 
 ## Blockers found by a packaging dry run
 
-`npx @vscode/vsce@4.1.0 package --no-dependencies` produces a 7-file VSIX (manifest, `package.json`, README, `dist/extension.js`, its source map, `media/agentlens.svg`). It reports:
+`npx @vscode/vsce@4.1.0 package --no-dependencies` produces a VSIX with the manifest, `package.json`, README, `dist/extension.js`, its source map, `dist/hook.js` (the Claude Code hook script, required by the installer) and `media/agentlens.svg`. It reports:
 
 - `WARNING LICENSE, LICENSE.md, or LICENSE.txt not found` — **Owner:** choose a license and add the file. `package.json` currently says `UNLICENSED`.
 - `publisher` is not set in `package.json` — **Owner:** create or choose a Marketplace publisher. Required to publish, not to build a local VSIX.
@@ -31,7 +31,7 @@ npx @vscode/vsce package --no-dependencies
 npx @vscode/vsce ls
 ```
 
-- [ ] The file list contains only `package.json`, `README.md`, `LICENSE`, `dist/extension.js`, `dist/extension.js.map` and `media/**`
+- [ ] The file list contains only `package.json`, `README.md`, `LICENSE`, `dist/extension.js`, `dist/extension.js.map`, `dist/hook.js` and `media/**`
 - [ ] No source code from `src/`, no `.vscode-test`, no fixtures, no logs
 - [ ] Install the VSIX in a clean VS Code profile and run `AgentLens: Enable`, `Disable`, `Pause Auto Focus` and the Activity Bar view
 
