@@ -88,6 +88,7 @@ Safety rules:
 - Never close a dirty/unsaved tab.
 - Never close the user's active tab.
 - Never close a file an Agent is currently working on.
+- Only close tabs AgentLens itself opened (ADR-005); the user's own tabs are never touched.
 - If no tab can be safely closed, allow exceeding the configured limit.
 - Verify VS Code API constraints before implementing — never claim a general tab-close API exists if it does not.
 

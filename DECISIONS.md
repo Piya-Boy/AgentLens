@@ -39,10 +39,16 @@ Records of key decisions made in AgentLens, so that AI and other contributors un
 
 ## ADR-005: Safe Tab Management
 
-**Status:** Proposed
+**Status:** Accepted
 
-**Decision:** Target a default of 5 open tabs, but do not force-close tabs when it is not safe to do so.
+**Decision:** Target a default of 5 open tabs, but do not force-close tabs when it is not safe to do so. AgentLens closes only tabs it opened itself, oldest first, and never one that is pinned, dirty, active, open in more than one tab, or the file an agent session is working on. The limit counts every tab, so it can stay exceeded when nothing is safe to close.
 
-**Reason:** Prevents loss of unsaved work and avoids disrupting the user.
+**Reason:** Prevents loss of unsaved work and avoids disrupting the user. VS Code does not say who opened a tab, so "tabs the user opened" cannot be told apart from "tabs the agent opened" after the fact; recording what AgentLens opened is the only way to leave the user's tabs alone.
 
-**Open question:** VS Code API constraints and the actual method for closing editors automatically must be verified before implementation.
+**Verified API constraints (VS Code 1.145.2 host; `@types/vscode` 1.90):**
+- `window.tabGroups.close(tab | tabs, preserveFocus)` exists and closed the targeted tabs in the integration test.
+- `Tab` exposes `isActive`, `isDirty`, `isPinned`, `isPreview` and, for plain text tabs, the file URI through `TabInputText`. Other tab kinds have no file key and are never closed, but still count toward the limit.
+- Closing a dirty tab opens a confirmation dialog, so dirty tabs are never passed to `close`. A tab that turns dirty between the check and the call is still guarded by that dialog.
+- `preview: true` is ignored when the user disabled preview editors, so every opened file then becomes a permanent tab. That is when trimming matters.
+
+**Consequences:** A file the user already had open is never registered as ours. A file the user later keeps (double-click) stays registered and can still be trimmed unless pinned or edited. Only the 1.145.2 host was exercised; the declared minimum (1.90) was not.

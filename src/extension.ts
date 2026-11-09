@@ -2,9 +2,16 @@ import { randomUUID } from "node:crypto";
 import * as vscode from "vscode";
 import { readConfig } from "./config";
 import { FocusController } from "./controllers/focus-controller";
+import { TabController } from "./controllers/tab-controller";
 import { TypingTracker } from "./controllers/typing-tracker";
 import { offerFileForObservation } from "./controllers/vscode-file-notifier";
-import { openFileForObservation } from "./controllers/vscode-file-opener";
+import {
+  closeVscodeTabs,
+  createManagedOpener,
+  listVscodeTabs,
+  realPathKeys,
+  type VscodeTab,
+} from "./controllers/vscode-tabs";
 import { watchTyping } from "./controllers/vscode-typing-listener";
 import { ActivityFilterState, type ActivityFilter } from "./core/activity-filter";
 import { ActivityStore } from "./core/activity-store";
@@ -54,8 +61,15 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
   const reportFocusError = (error: unknown): void => {
     output.appendLine(`Focus failed: ${describeError(error)}`);
   };
+  const tabController = new TabController<VscodeTab>({
+    listTabs: listVscodeTabs,
+    closeTabs: closeVscodeTabs,
+    getProtectedKeys: () => realPathKeys(sessionManager.list().map((session) => session.lastFilePath)),
+    getMaxTabs: () => readConfig().maxTabs,
+    reportError: reportFocusError,
+  });
   const focusController = new FocusController({
-    openFile: (filePath) => openFileForObservation(filePath),
+    openFile: createManagedOpener(tabController),
     notifyFile: (event) => {
       offerFileForObservation(event, reportFocusError);
     },

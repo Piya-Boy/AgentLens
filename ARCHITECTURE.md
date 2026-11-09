@@ -115,7 +115,7 @@ Filesystem fallback events must never be interpreted as pre-edit events.
 ## 8. Tab Controller
 
 Responsible for evaluating which tabs can be safely managed:
-- Check pinned, dirty, active, and agent-owned status.
+- Check pinned, dirty, active, and agent-owned status. Only tabs AgentLens opened are candidates (`OwnedTabs`); `selectTabsToClose` is the pure policy.
 - Use only APIs/commands that actually exist and have been tested.
 - When safety cannot be confirmed, do not close the tab.
 - Keep Tab Management separate from Focus Controller.

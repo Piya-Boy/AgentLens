@@ -211,6 +211,83 @@ const cases: readonly TestCase[] = [
     },
   },
   {
+    name: "trims tabs it opened when over the tab limit but never the user's own tabs",
+    run: async (api) => {
+      const userFile = fixtureFile("other.txt");
+      const agentlens = vscode.workspace.getConfiguration("agentlens");
+      const editorSettings = vscode.workspace.getConfiguration("workbench.editor");
+      const openTabs = (): vscode.Tab[] => vscode.window.tabGroups.all.flatMap((group) => [...group.tabs]);
+      const openNames = (): string[] =>
+        openTabs()
+          .flatMap((tab) => (tab.input instanceof vscode.TabInputText ? [path.basename(tab.input.uri.fsPath)] : []))
+          .sort();
+
+      await vscode.commands.executeCommand("workbench.action.closeAllEditors");
+      await agentlens.update("maxTabs", 1, vscode.ConfigurationTarget.Global);
+      await editorSettings.update("enablePreview", false, vscode.ConfigurationTarget.Global);
+      try {
+        await delay(1100);
+        await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(userFile), { preview: false });
+
+        assert.equal((await sendMockEvent(fixtureFile("sample.txt")))?.accepted, true);
+        await waitFor(() => openNames().includes("sample.txt"));
+        assert.ok(
+          openTabs().every((tab) => !tab.isPreview),
+          "preview tabs are still on, so this test could not tell trimming from replacement",
+        );
+        assert.deepEqual(openNames(), ["other.txt", "sample.txt"], "the active tab must not be closed");
+
+        await delay(1100);
+        assert.equal((await sendMockEvent(fixtureFile("third.txt")))?.accepted, true);
+        await waitFor(() => openNames().includes("third.txt"));
+        await waitFor(() => !openNames().includes("sample.txt"));
+        assert.deepEqual(openNames(), ["other.txt", "third.txt"], "only the older tab AgentLens opened may be closed");
+        assert.ok(api.isEnabled());
+      } finally {
+        await agentlens.update("maxTabs", undefined, vscode.ConfigurationTarget.Global);
+        await editorSettings.update("enablePreview", undefined, vscode.ConfigurationTarget.Global);
+        await vscode.commands.executeCommand("workbench.action.closeAllEditors");
+      }
+    },
+  },
+  {
+    name: "keeps a pinned tab it opened even when over the tab limit",
+    run: async () => {
+      const agentlens = vscode.workspace.getConfiguration("agentlens");
+      const editorSettings = vscode.workspace.getConfiguration("workbench.editor");
+      const sampleTab = (): vscode.Tab | undefined =>
+        vscode.window.tabGroups.all
+          .flatMap((group) => [...group.tabs])
+          .find((tab) => tab.input instanceof vscode.TabInputText && path.basename(tab.input.uri.fsPath) === "sample.txt");
+
+      await vscode.commands.executeCommand("workbench.action.closeAllEditors");
+      await agentlens.update("maxTabs", 1, vscode.ConfigurationTarget.Global);
+      await editorSettings.update("enablePreview", false, vscode.ConfigurationTarget.Global);
+      try {
+        await delay(1100);
+        assert.equal((await sendMockEvent(fixtureFile("sample.txt")))?.accepted, true);
+        await waitFor(() => sampleTab()?.isActive === true);
+        await vscode.commands.executeCommand("workbench.action.pinEditor");
+        await waitFor(() => sampleTab()?.isPinned === true);
+
+        await delay(1100);
+        assert.equal((await sendMockEvent(fixtureFile("third.txt")))?.accepted, true);
+        await waitFor(() => isFixtureVisible("third.txt"));
+        await delay(800);
+        assert.ok(sampleTab(), "the pinned tab was closed");
+      } finally {
+        const pinned = sampleTab();
+        if (pinned?.input instanceof vscode.TabInputText) {
+          await vscode.window.showTextDocument(pinned.input.uri, { preview: false });
+          await vscode.commands.executeCommand("workbench.action.unpinEditor");
+        }
+        await agentlens.update("maxTabs", undefined, vscode.ConfigurationTarget.Global);
+        await editorSettings.update("enablePreview", undefined, vscode.ConfigurationTarget.Global);
+        await vscode.commands.executeCommand("workbench.action.closeAllEditors");
+      }
+    },
+  },
+  {
     name: "observes file changes made outside the extension as filesystem events without opening them",
     run: async (api) => {
       const target = fixtureFile("external-change.txt");

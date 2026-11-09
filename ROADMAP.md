@@ -76,12 +76,14 @@ Statuses in this document represent plans, not confirmation that features are co
 - [x] Debounce / cooldown — `agentlens.focusCooldownMs` (default 1000 ms, 0 disables) between automatic opens; unit-tested with fake timers, not measured against a real agent
 - [x] Manual mode — `agentlens.focusMode: "notify"` shows a notification (`<agent> is about to edit <file>.`) with an Open button instead of opening the file; Open uses a preview tab and takes input focus because the user asked for it. Shares the cooldown and latest-wins queue. Replaces the boolean `agentlens.autoFocus` (never released, no migration). Unit-tested (291) and integration-tested that notify/off record the event without opening; the notification itself and the Open click were not driven in a real window
 - [x] Prevent stealing the active editor — in `auto` mode an open is deferred while the user has edited the active document (left unsaved) within the last 3 s; it re-checks every 500 ms, opens only the latest requested file once they stop, and is dropped after 10 s of continuous typing. Notifications are never deferred. Unit-tested with fake timers (305) and integration-tested by typing into a real editor (the test failed before the dirty-flag fix, so it does detect the behaviour). Not detected: typing in the terminal, a clean active document, or other windows (VS Code exposes no API for those)
-- [ ] Tab safety evaluation
-- [ ] Max tabs setting (default 5)
-- [ ] Never close pinned/dirty/active/agent-working tabs
-- [ ] Test VS Code API constraints
+- [x] Tab safety evaluation — pure `selectTabsToClose` (oldest-first, only AgentLens-opened tabs, skips pinned/dirty/active/protected/duplicated, may leave the limit exceeded) plus `TabController` (serialised passes, close and protected-key failures reported and nothing closed); policy in ADR-005
+- [x] Max tabs setting (default 5) — `agentlens.maxTabs` is read on every pass; a value below 1 acts as 1
+- [x] Never close pinned/dirty/active/agent-working tabs — unit-tested for each rule; integration-tested for active and pinned tabs and for leaving the user's own tab alone. A dirty tab was not driven in a real window (closing one opens a modal dialog), only unit-tested
+- [x] Test VS Code API constraints — findings recorded in ADR-005; `tabGroups.close` verified in the 1.145.2 host only, not on the declared minimum 1.90
 
 **Exit criteria:** Focus and tab management cause no data loss and do not unnecessarily disrupt the user.
+
+**Evidence:** `npm test` 334 passed | 1 skipped; `test:integration` 20/20 in a real Extension Development Host, including typing deferral, notify/off, tab trimming and a pinned tab. No data-loss path was found, but the criterion is judged on automated tests only: no manual session with a real agent and a real user typing, one VS Code version, Windows only.
 
 ## Phase 6 — More Integrations and Hardening
 

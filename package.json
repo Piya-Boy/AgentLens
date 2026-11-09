@@ -155,7 +155,7 @@
           "type": "integer",
           "default": 5,
           "minimum": 1,
-          "description": "Target number of open tabs. Tabs that are pinned, dirty or active are never closed, so this limit may be exceeded."
+          "description": "Target number of open tabs. AgentLens only closes tabs it opened itself, oldest first, and never one that is pinned, unsaved, active or in use by an agent session, so this limit may be exceeded."
         }
       }
     }
