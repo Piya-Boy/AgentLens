@@ -58,6 +58,77 @@ async function sendMockEvent(filePath: string): Promise<IngestOutcome | undefine
   return vscode.commands.executeCommand<IngestOutcome | undefined>("agentlens.sendMockEvent", filePath);
 }
 
+const BURST_FILES = 500;
+
+interface BurstResult {
+  readonly writtenMs: number;
+  readonly recorded: number;
+  readonly maxLagMs: number;
+  readonly heapDeltaMb: number;
+}
+
+async function measureBurst(api: AgentLensApi, enabled: boolean, viewVisible: boolean): Promise<BurstResult> {
+  const batchSize = 100;
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  assert.ok(folder, "fixture workspace is not open");
+  const directory = path.join(folder.uri.fsPath, `burst-${String(Date.now())}`);
+  const recorded = (): number => api.sessions().find((candidate) => candidate.agentId === "unknown")?.eventCount ?? 0;
+  const waitForQuiet = async (): Promise<void> => {
+    let last = -1;
+    let stableSince = Date.now();
+    while (Date.now() - stableSince < 1500) {
+      await delay(100);
+      if (recorded() !== last) {
+        last = recorded();
+        stableSince = Date.now();
+      }
+    }
+  };
+
+  await vscode.commands.executeCommand(enabled ? "agentlens.enable" : "agentlens.disable");
+  await vscode.commands.executeCommand(viewVisible ? "workbench.view.extension.agentlens" : "workbench.action.closeSidebar");
+  await fs.mkdir(directory);
+  await waitForQuiet();
+
+  let maxLagMs = 0;
+  let lastTick = performance.now();
+  const sampler = setInterval(() => {
+    const now = performance.now();
+    maxLagMs = Math.max(maxLagMs, now - lastTick - 25);
+    lastTick = now;
+  }, 25);
+  const heapBefore = process.memoryUsage().heapUsed;
+  const before = recorded();
+  const started = performance.now();
+  try {
+    for (let offset = 0; offset < BURST_FILES; offset += batchSize) {
+      await Promise.all(
+        Array.from({ length: batchSize }, (_, index) =>
+          fs.writeFile(path.join(directory, `f${String(offset + index)}.txt`), "x\n"),
+        ),
+      );
+    }
+    const writtenMs = performance.now() - started;
+    if (enabled) {
+      await waitFor(() => recorded() - before >= BURST_FILES, 60000);
+    }
+    await waitForQuiet();
+    await delay(enabled ? 0 : 3000);
+    return {
+      writtenMs,
+      recorded: recorded() - before,
+      maxLagMs,
+      heapDeltaMb: (process.memoryUsage().heapUsed - heapBefore) / (1024 * 1024),
+    };
+  } finally {
+    clearInterval(sampler);
+    await fs.rm(directory, { recursive: true, force: true });
+    await waitForQuiet();
+    await delay(enabled ? 0 : 3000);
+    await vscode.commands.executeCommand("agentlens.enable");
+  }
+}
+
 interface TestCase {
   readonly name: string;
   readonly platform?: NodeJS.Platform;
@@ -410,6 +481,29 @@ const cases: readonly TestCase[] = [
       } finally {
         terminal.dispose();
         await fs.rm(target, { force: true });
+      }
+    },
+  },
+  {
+    name: "records a burst of file creations without losing events or blocking the extension host",
+    run: async (api) => {
+      const scenarios = [
+        { label: "AgentLens disabled", enabled: false, viewVisible: false },
+        { label: "enabled, view hidden", enabled: true, viewVisible: false },
+        { label: "enabled, view visible", enabled: true, viewVisible: true },
+      ];
+      for (const scenario of scenarios) {
+        const result = await measureBurst(api, scenario.enabled, scenario.viewVisible);
+        console.log(
+          `  burst (${scenario.label}): ${String(BURST_FILES)} files written in ${result.writtenMs.toFixed(0)} ms, ` +
+            `recorded ${String(result.recorded)} events, history ${String(api.history().length)}, ` +
+            `max host event-loop lag ${result.maxLagMs.toFixed(0)} ms, heap delta ${result.heapDeltaMb.toFixed(1)} MB`,
+        );
+        if (scenario.enabled) {
+          assert.ok(result.recorded >= BURST_FILES, `events were lost (${scenario.label})`);
+          assert.ok(api.history().length <= 500, "history is not capped");
+          assert.ok(result.maxLagMs < 2000, `the extension host stalled for ${result.maxLagMs.toFixed(0)} ms (${scenario.label})`);
+        }
       }
     },
   },

@@ -5,3 +5,4 @@ out/
 *.vsix
 *.log
 src/test/fixtures/workspace/external-*.txt
+src/test/fixtures/workspace/burst-*/

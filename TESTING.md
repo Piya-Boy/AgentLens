@@ -90,3 +90,16 @@ Record:
 - Expected: every change appears in the activity history as a `filesystem` event with the right action and path, no file is opened.
 - Actual: all expected events were recorded and nothing was opened. Result: PASS
 - Not covered: WSL; typing into an integrated terminal (`terminal.sendText` did not run the command in the test host, with or without a shell profile, so that approach was abandoned); macOS and Linux.
+
+### 2026-11-09 — Filesystem watcher burst
+
+- Environment: Windows 11, VS Code 1.145.2 (integration host), fixture workspace on a local disk
+- Steps: the integration suite writes 1000 files in batches of 100 into a new folder under the fixture workspace in three scenarios (AgentLens disabled, enabled with the AgentLens view hidden, enabled with the view visible), sampling the extension host's event-loop lag every 25 ms and its heap before and after.
+- Expected: no events lost when enabled, history stays capped at 500, the extension host does not stall.
+- Actual (1000 files, one run):
+  - disabled: written in 17.9 s, lag 29 ms
+  - enabled, view hidden: written in 25.0 s, 2008 events recorded (create and change per file), lag 41 ms, heap delta -0.9 MB
+  - enabled, view visible: written in 36.2 s, 1933 events recorded, lag 24 ms, heap delta 2.1 MB
+  - 500-file runs gave lag of 21-26 ms. An earlier single run with the view opened right before sampling showed 909 ms once; it did not repeat.
+- Result: PASS (the committed test uses 500 files and fails if events are lost, history exceeds its cap, or lag reaches 2 s)
+- Not covered: CPU use of VS Code's file-watcher process, a real branch checkout, long-running memory, macOS and Linux.
