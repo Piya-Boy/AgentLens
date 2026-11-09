@@ -52,7 +52,7 @@ function send(endpoint: string, message: ForwardMessage): Promise<boolean> {
 async function forward(message: ForwardMessage): Promise<void> {
   let realCwd: string;
   try {
-    realCwd = realpathSync(message.cwd);
+    realCwd = realpathSync.native(message.cwd);
   } catch {
     return;
   }

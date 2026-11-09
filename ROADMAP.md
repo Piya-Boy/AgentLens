@@ -46,10 +46,10 @@ Statuses in this document represent plans, not confirmation that features are co
 ## Phase 3 — First Agent Integration
 
 - [x] Review current Claude Code hook/event documentation — read https://code.claude.com/docs/en/hooks on 2026-11-09: `PreToolUse` runs before the tool, payload has `session_id`, `tool_name`, `tool_input.file_path` (absolute), `tool_use_id`; exit 0 with no output means no decision; command and http hook types exist. Not verified: async hook semantics, MultiEdit/NotebookEdit schemas (undocumented in the text read)
-- [ ] Design adapter based on actual payload structure — payload parser done; transport from the hook to the extension (command hook plus local socket, or http hook plus local server) and hook installation need an owner decision
-- [ ] Receive pre-edit events
+- [x] Design adapter based on actual payload structure — decided: a notify-only command hook (`dist/hook.js`) forwards file path, session, tool and cwd over a per-user local socket (Windows named pipe, Unix socket in a 0700 directory); no HTTP port. Endpoint is derived from the workspace real path and looked up from the hook's cwd and its ancestors. Hook installation is a separate item
+- [x] Receive pre-edit events — `dist/hook.js` run as a separate process with a PreToolUse-shaped payload reaches the extension and opens the file (integration test on Windows named pipes). Not yet run by a real Claude Code session; the Unix socket path is untested on this machine
 - [x] Map session and tool name — `session_id` to sessionId, `tool_use_id` to eventId, `tool_name` to toolName; Edit and Write map to edit, Read to read; other tools are unsupported
-- [ ] Handle timeout, malformed payload, and duplicate events — malformed payloads rejected by the parser and duplicates by the Event Manager; timeout depends on the transport
+- [x] Handle timeout, malformed payload, and duplicate events — hook gives up after 300 ms per endpoint and 2 s overall and always exits 0 with no output; malformed or oversized messages are dropped (16 KiB limit, 2 s connection timeout); duplicates are dropped by the Event Manager
 - [ ] End-to-end testing
 
 **Exit criteria:** Test evidence confirms events arrive before edits and the file opens before the Agent acts.

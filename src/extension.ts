@@ -10,8 +10,10 @@ import { FilesystemDetector } from "./detectors/filesystem-detector";
 import { PauseState } from "./core/pause-state";
 import { EventManager, type IngestResult } from "./core/event-manager";
 import { createMockEvent } from "./core/mock-event";
+import { parseClaudePreToolUse } from "./adapters/claude/pre-tool-use";
 import type { AgentFileEvent } from "./models/agent-file-event";
 import { SessionManager, type SessionInfo } from "./core/session-manager";
+import { HookListener } from "./transport/hook-listener";
 import { registerUi } from "./ui/register-ui";
 import { workspaceRoots } from "./workspace";
 
@@ -23,6 +25,7 @@ export interface AgentLensApi {
   sessions(): readonly SessionInfo[];
   history(): readonly AgentFileEvent[];
   activityFilter(): ActivityFilter;
+  hookEndpoints(): readonly string[];
 }
 
 function describeError(error: unknown): string {
@@ -75,6 +78,20 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     },
   });
 
+  const hookListener = new HookListener({
+    onMessage: (message) => {
+      const parsed = parseClaudePreToolUse(message, Date.now());
+      if (!parsed.ok) {
+        output.appendLine(`Ignored hook message (${parsed.reason}): ${parsed.detail}`);
+        return;
+      }
+      ingest(parsed.event);
+    },
+    reportError: (error) => {
+      output.appendLine(`Hook listener: ${describeError(error)}`);
+    },
+  });
+
   const setEnabled = async (enabled: boolean): Promise<void> => {
     await enabledState.setEnabled(enabled);
     void vscode.window.showInformationMessage(`AgentLens ${enabled ? "enabled" : "disabled"}.`);
@@ -102,6 +119,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     output,
     focusController,
     filesystemDetector,
+    hookListener,
     ...registerUi({ activityStore, filterState, sessionManager, enabledState, pauseState }),
     vscode.commands.registerCommand("agentlens.enable", () => setEnabled(true)),
     vscode.commands.registerCommand("agentlens.disable", () => setEnabled(false)),
@@ -142,6 +160,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     sessions: () => sessionManager.list(),
     history: () => activityStore.list(),
     activityFilter: () => filterState.filter,
+    hookEndpoints: () => hookListener.endpoints(),
   };
 }
 

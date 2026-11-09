@@ -1,4 +1,5 @@
 import * as assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -11,6 +12,22 @@ import { ActivityTreeProvider } from "../../providers/activity-tree";
 import { SessionsTreeProvider } from "../../providers/sessions-tree";
 
 const EXTENSION_NAME = "agentlens";
+let extensionRoot = "";
+
+function runHookScript(stdin: string, cwd: string): Promise<{ code: number | null; stdout: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("node", [path.join(extensionRoot, "dist", "hook.js")], { cwd, stdio: ["pipe", "pipe", "pipe"] });
+    let stdout = "";
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString("utf8");
+    });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      resolve({ code, stdout });
+    });
+    child.stdin.end(stdin);
+  });
+}
 
 function fixtureFile(name = "sample.txt"): string {
   const folder = vscode.workspace.workspaceFolders?.[0];
@@ -284,6 +301,52 @@ const cases: readonly TestCase[] = [
     },
   },
   {
+    name: "delivers a real Claude Code PreToolUse payload through the hook script and opens the file",
+    run: async (api) => {
+      await waitFor(() => api.hookEndpoints().length > 0);
+      await vscode.commands.executeCommand("workbench.action.closeAllEditors");
+      assert.equal(isFixtureVisible("third.txt"), false);
+
+      const workspaceRoot = path.dirname(fixtureFile());
+      const payload = JSON.stringify({
+        session_id: "e2e-session",
+        transcript_path: "/tmp/transcript.jsonl",
+        cwd: workspaceRoot,
+        permission_mode: "default",
+        hook_event_name: "PreToolUse",
+        tool_name: "Write",
+        tool_input: { file_path: fixtureFile("third.txt"), content: "TOP SECRET SOURCE CONTENT" },
+        tool_use_id: "toolu_e2e_1",
+      });
+
+      const result = await runHookScript(payload, workspaceRoot);
+      assert.equal(result.code, 0);
+      assert.equal(result.stdout, "");
+
+      await waitFor(() => api.sessions().some((session) => session.agentId === "claude-code" && session.sessionId === "e2e-session"));
+      await waitFor(() => isFixtureVisible("third.txt"));
+      assert.equal(JSON.stringify(api.history()).includes("TOP SECRET"), false);
+    },
+  },
+  {
+    name: "hook script exits 0 without output when no AgentLens instance is listening",
+    run: async () => {
+      const result = await runHookScript(
+        JSON.stringify({
+          session_id: "s",
+          cwd: os.tmpdir(),
+          hook_event_name: "PreToolUse",
+          tool_name: "Edit",
+          tool_use_id: "t",
+          tool_input: { file_path: path.join(os.tmpdir(), "x.txt") },
+        }),
+        os.tmpdir(),
+      );
+      assert.equal(result.code, 0);
+      assert.equal(result.stdout, "");
+    },
+  },
+  {
     name: "exposes default configuration",
     run: () => {
       const section = vscode.workspace.getConfiguration("agentlens");
@@ -300,6 +363,7 @@ export async function run(): Promise<void> {
   );
   assert.ok(extension, `extension "${EXTENSION_NAME}" not found in the Extension Development Host`);
 
+  extensionRoot = extension.extensionPath;
   const api = (await extension.activate()) as AgentLensApi;
   assert.equal(extension.isActive, true);
 
