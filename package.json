@@ -1,6 +1,7 @@
 {
   "name": "agentlens",
   "displayName": "AgentLens",
+  "publisher": "piya-boy",
   "description": "Universal AI Agent File Monitor for VS Code",
   "version": "0.0.1",
   "private": true,

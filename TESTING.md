@@ -242,3 +242,12 @@ Record:
 - Actual: phase A: extension 0.0.1 active on its own, copy created, copy and bundled SHA both `c17585737…`, Claude Code event for `a.txt` after 6.8 s, file contained `A`. Phase B: extension 0.0.2 active on its own, copy SHA `13ca18b47…` equal to the new bundled script and different from before (the end of `hook.js` carries the 0.0.2 marker), the settings file byte-identical to its state before the update (compared with `cmp`), Claude Code event for `b.txt` after 12.5 s, file contained `B`. Neither entry named an extension folder.
 - Result: PASS
 - Limits of the check: the old 0.0.1 folder was still on disk during phase B (VS Code deletes obsolete versions later), so this run shows the entry no longer depends on the extension folder and that the copy follows the update, but it does not show a missing-folder failure that the old design would have had. The update was a CLI install, not VS Code's updater or the Marketplace. One machine, one Claude Code version, `LOCALAPPDATA` overridden for the host. Two editors with different versions were not tried.
+
+### 2026-11-09 — Packaging with a publisher
+
+- Environment: Windows 11, vsce 4.1.0, the installed VS Code with scratch `--extensions-dir` and `--user-data-dir`.
+- Steps: set `"publisher": "piya-boy"`, `vsce package --no-dependencies`, install the VSIX with `code --install-extension`, `--list-extensions --show-versions`; try `vsce publish --dry-run`; read the vsce source for the publisher rule and for any handling of `private`.
+- Expected: the VSIX builds without a publisher warning and installs under the id `piya-boy.agentlens`; the publisher id is valid.
+- Actual: packaged (10 files) with only the LICENSE warning; `piya-boy.agentlens@0.0.1` was listed. `vsce publish` has no `--dry-run` option in 4.1.0, so a publish was not tried and no token was used. vsce validates the id with `^[a-z0-9][a-z0-9-]*$` (case-insensitive) and does not read `private`.
+- Result: PASS for packaging and install
+- Limits of the check: the publisher does not exist on the Marketplace, so a real publish, the token flow and the listing page were not run. The id was chosen by me, not given by the owner.
