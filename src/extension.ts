@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import * as vscode from "vscode";
 import { readConfig } from "./config";
+import { FocusController } from "./controllers/focus-controller";
+import { openFileForObservation } from "./controllers/vscode-file-opener";
 import { EnabledState } from "./core/enabled-state";
 import { EventManager, type IngestResult } from "./core/event-manager";
 import { createMockEvent } from "./core/mock-event";
@@ -31,6 +33,14 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     getWorkspaceRoots: workspaceRoots,
     reportListenerError: (error) => {
       output.appendLine(`Event listener failed: ${describeError(error)}`);
+    },
+  });
+
+  const focusController = new FocusController({
+    openFile: openFileForObservation,
+    isAutoFocusEnabled: () => readConfig().autoFocus,
+    reportError: (error) => {
+      output.appendLine(`Focus failed: ${describeError(error)}`);
     },
   });
 
@@ -71,6 +81,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     eventManager.onEvent((event) => {
       sessionManager.record(event);
       output.appendLine(`Event ${event.status} ${event.action} ${event.filePath} (${event.agentId}/${event.sessionId})`);
+      void focusController.handle(event);
     }),
   );
 

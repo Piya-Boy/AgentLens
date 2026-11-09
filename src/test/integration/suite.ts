@@ -12,6 +12,21 @@ function fixtureFile(): string {
   return path.join(folder.uri.fsPath, "sample.txt");
 }
 
+async function waitFor(condition: () => boolean, timeoutMs = 5000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!condition()) {
+    if (Date.now() > deadline) {
+      throw new Error("timed out waiting for condition");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
+function isFixtureVisible(): boolean {
+  const expected = path.normalize(fixtureFile());
+  return vscode.window.visibleTextEditors.some((editor) => path.normalize(editor.document.uri.fsPath) === expected);
+}
+
 async function sendMockEvent(filePath: string): Promise<IngestOutcome | undefined> {
   return vscode.commands.executeCommand<IngestOutcome | undefined>("agentlens.sendMockEvent", filePath);
 }
@@ -47,11 +62,14 @@ const cases: readonly TestCase[] = [
     },
   },
   {
-    name: "records a session for a mock event inside the workspace",
+    name: "records a session and opens the file for a mock event inside the workspace",
     run: async (api) => {
+      await vscode.commands.executeCommand("workbench.action.closeAllEditors");
+      assert.equal(isFixtureVisible(), false);
       const before = api.sessions().length;
       const result = await sendMockEvent(fixtureFile());
       assert.equal(result?.accepted, true);
+      await waitFor(isFixtureVisible);
       const sessions = api.sessions();
       assert.equal(sessions.length, before + 1);
       const session = sessions.find((candidate) => candidate.agentId === "mock");

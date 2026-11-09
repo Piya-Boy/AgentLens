@@ -23,7 +23,7 @@ Statuses in this document represent plans, not confirmation that features are co
 - [x] Session Manager — in-memory, keyed by agent and session id, capped at 50 sessions (least recently updated evicted); not wired into the extension or persisted yet
 - [x] Event deduplication — same event id per agent/session, or identical content within a 500 ms window; bounded to 1000 entries; wired into Event Manager. The 500 ms window is a proposed default, not validated against a real agent
 - [x] Mock event command for testing — `AgentLens: Send Mock Pre-edit Event for Active File`; Event Manager and Session Manager are wired into the extension; events are recorded but no file is opened until the Focus Controller lands
-- [ ] Focus Controller
+- [x] Focus Controller — opens the file (preview tab, without taking input focus) only for adapter events with status `started` and action `edit`; honours `agentlens.autoFocus`; open errors are reported, not thrown. No queue/debounce yet (Phase 5)
 - [ ] Auto Focus / Pause / Resume
 
 **Exit criteria:** Sending a mock pre-edit event successfully opens the correct file safely.
