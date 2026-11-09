@@ -219,6 +219,53 @@ async function wslSkipReason(): Promise<string | undefined> {
   }
 }
 
+const SHELL_READY_DELAY_MS = 4000;
+
+/**
+ * Types a command into an interactive PowerShell terminal that is shown in the panel, the way a
+ * user would: either with the extension API (`sendText`) or with the terminal's sequence command,
+ * which is what a keybinding uses. The pauses between steps keep the watcher from merging them.
+ */
+function typedTerminalCase(how: "sendText" | "sendSequence"): TestCase {
+  const fileName = `external-typed-${how}.txt`;
+  return {
+    name: `observes files written by a command typed into a VS Code integrated terminal (${how})`,
+    platform: "win32",
+    run: async (api) => {
+      const target = fixtureFile(fileName);
+      const command = `Set-Content -Path '${target}' -Value 'typed'; Start-Sleep -Milliseconds 700; Add-Content -Path '${target}' -Value 'more'; Start-Sleep -Milliseconds 700; Remove-Item -Path '${target}'`;
+      const terminal = vscode.window.createTerminal({
+        name: `AgentLens typed ${how}`,
+        cwd: path.dirname(target),
+        shellPath: "powershell.exe",
+        shellArgs: ["-NoProfile", "-NoLogo"],
+      });
+      try {
+        terminal.show();
+        await terminal.processId;
+        await delay(SHELL_READY_DELAY_MS);
+        const since = Date.now();
+        if (how === "sendText") {
+          terminal.sendText(command, true);
+        } else {
+          await vscode.commands.executeCommand("workbench.action.terminal.sendSequence", { text: `${command}\r` });
+        }
+        await waitFor(
+          () =>
+            sawFilesystemEvent(api, target, "create", since) &&
+            sawFilesystemEvent(api, target, "edit", since) &&
+            sawFilesystemEvent(api, target, "delete", since),
+          20000,
+        );
+        assert.equal(isFixtureVisible(fileName), false);
+      } finally {
+        terminal.dispose();
+        await fs.rm(target, { force: true });
+      }
+    },
+  };
+}
+
 const cases: readonly TestCase[] = [
   {
     name: "registers enable and disable commands",
@@ -580,6 +627,7 @@ const cases: readonly TestCase[] = [
       }
     },
   },
+  ...(["sendText", "sendSequence"] as const).map(typedTerminalCase),
   {
     name: "records a burst of file creations without missing files or blocking the extension host",
     run: async (api) => {
