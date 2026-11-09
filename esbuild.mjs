@@ -18,6 +18,14 @@ await build({
   outdir: "dist",
 });
 
+await build({
+  ...common,
+  target: "node18",
+  sourcemap: false,
+  entryPoints: { hook: "src/hook/claude-hook.ts" },
+  outdir: "dist",
+});
+
 if (includeTests) {
   await build({
     ...common,
