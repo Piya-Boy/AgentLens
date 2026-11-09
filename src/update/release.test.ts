@@ -24,18 +24,27 @@ describe("parseLatestRelease", () => {
   });
 
   it.each([
+    "https://example.invalid/phish",
+    `${RELEASE_PAGE_PREFIX}../../../anything`,
+    "javascript:alert(1)",
+    undefined,
+    42,
+  ])("builds the page from the tag and ignores the response's own page %j", (htmlUrl) => {
+    expect(parseLatestRelease({ ...valid, html_url: htmlUrl })?.url).toBe(`${RELEASE_PAGE_PREFIX}tag/v1.4.0`);
+  });
+
+  it("keeps the tag spelling it was given, with or without a leading v", () => {
+    expect(parseLatestRelease({ ...valid, tag_name: "1.4.0" })?.url).toBe(`${RELEASE_PAGE_PREFIX}tag/1.4.0`);
+  });
+
+  it.each([
     ["a draft", { ...valid, draft: true }],
     ["a pre-release", { ...valid, prerelease: true }],
     ["a tag that is not a plain version", { ...valid, tag_name: "v1.4.0-rc.1" }],
+    ["a tag that tries to leave the releases folder", { ...valid, tag_name: "../../x" }],
+    ["a tag with a path after the version", { ...valid, tag_name: "v1.4.0/../../x" }],
     ["a missing tag", { ...valid, tag_name: undefined }],
     ["a numeric tag", { ...valid, tag_name: 140 }],
-    ["a page on another host", { ...valid, html_url: "https://example.invalid/Piya-Boy/AgentLens/releases/tag/v1.4.0" }],
-    ["a page on another repository", { ...valid, html_url: "https://github.com/someone/else/releases/tag/v1.4.0" }],
-    ["a look-alike prefix", { ...valid, html_url: "https://github.com/Piya-Boy/AgentLens/releases-evil/tag/v1.4.0" }],
-    ["a plain http page", { ...valid, html_url: "http://github.com/Piya-Boy/AgentLens/releases/tag/v1.4.0" }],
-    ["a page with whitespace", { ...valid, html_url: `${RELEASE_PAGE_PREFIX}tag/v1 .4.0` }],
-    ["a page with a quote", { ...valid, html_url: `${RELEASE_PAGE_PREFIX}tag/"x` }],
-    ["a missing page", { ...valid, html_url: undefined }],
   ])("rejects %s", (_label, body) => {
     expect(parseLatestRelease(body)).toBeUndefined();
   });

@@ -827,6 +827,21 @@ const cases: readonly TestCase[] = [
       return Promise.resolve();
     },
   },
+  {
+    name: "does not let workspace settings turn on the update check",
+    run: async () => {
+      const section = vscode.workspace.getConfiguration("agentlens");
+      const attempt = await section
+        .update("checkForUpdates", true, vscode.ConfigurationTarget.Workspace)
+        .then(() => "written" as const, () => "refused" as const);
+      if (attempt === "written") {
+        await section.update("checkForUpdates", undefined, vscode.ConfigurationTarget.Workspace);
+      }
+      assert.equal(attempt, "refused");
+      assert.equal(section.inspect("checkForUpdates")?.workspaceValue, undefined);
+      assert.equal(vscode.workspace.getConfiguration("agentlens").get("checkForUpdates"), false);
+    },
+  },
 ];
 
 export async function run(): Promise<void> {

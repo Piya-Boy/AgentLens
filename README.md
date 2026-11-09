@@ -12,7 +12,7 @@ AgentLens tracks the activity of AI Coding Agents that modify files within your 
 - Use FileSystemWatcher as a fallback to detect changes after they occur
 - Display Agent, Session, Action, File, and timestamp in the Activity Sidebar
 - Provide Smart Focus and Smart Tab Management that do not disrupt the user's workflow
-- Operate entirely on-device — no Source Code is sent to external services
+- Operate on-device — no Source Code or Workspace data is sent to external services (the only network request is the optional update check, off by default)
 
 ## Core Principles
 
@@ -77,8 +77,8 @@ AgentLens does not update itself. VS Code updates installed extensions; a VSIX i
 The one thing AgentLens can do is tell you that a newer release exists:
 
 - `AgentLens: Check for Updates` asks GitHub once, when you run it, and shows the result with a button that opens the release page.
-- `agentlens.checkForUpdates` (default `false`) does the same automatically, about 10 seconds after start-up and at most once a day, and tells you about each new version once.
-- Each check is one anonymous `GET` of the latest release of `Piya-Boy/AgentLens` on `api.github.com`. It sends no workspace data, only a user agent with the extension version; GitHub sees your IP address. Redirects are refused, the answer is limited to 64 KiB and only the version and the release page are read.
+- `agentlens.checkForUpdates` (default `false`) does the same automatically, about 10 seconds after start-up and at most once a day, and tells you about each new version once. Only your user settings can turn it on; a repository's `.vscode/settings.json` cannot.
+- Each check is one anonymous `GET` of the latest release of `Piya-Boy/AgentLens` on `api.github.com`. It sends no workspace data, only a user agent with the extension version; GitHub sees your IP address. Redirects are refused, the answer is limited to 64 KiB and only the version tag is read; the release page link is built from it.
 - It never downloads or installs anything. Drafts and pre-releases are ignored.
 - The repository has no published release yet. GitHub answers HTTP 404 (checked on 2026-11-09), so running the command today shows "could not check for updates (the server answered HTTP 404)".
 
