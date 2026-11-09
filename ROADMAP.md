@@ -87,8 +87,8 @@ Statuses in this document represent plans, not confirmation that features are co
 
 ## Phase 6 — More Integrations and Hardening
 
-- [ ] Explore Codex integration based on actual API
-- [ ] Explore Cursor integration based on actual API
+- [x] Explore Codex integration based on actual API — documented in `INTEGRATIONS.md`: `PreToolUse` covers `apply_patch` (matched as `Edit`/`Write`), notify-only is possible, project hooks need the user to trust `.codex/`. Not implemented: the path sits inside the patch text and the real `apply_patch` payload has not been captured. Parts of the source page came back as a summary, not verbatim
+- [x] Explore Cursor integration based on actual API — documented in `INTEGRATIONS.md`: no dedicated pre-edit event; `afterFileEdit` is post-edit only, `preToolUse` with a `Write` matcher may be pre-edit but is unconfirmed. Not implemented. Parts of the source page came back as a summary, not verbatim
 - [x] Generic adapter contract — `AgentAdapter` (`parse`) and `runAdapter` failure isolation in `src/adapters/adapter.ts`, Claude Code is `claudeCodeAdapter`; lifecycle left to transports (ADR-006). Validated against one real adapter only
 - [x] Multi-agent / multi-session tests — unit-level pipeline tests with interleaved Claude Code sessions, a second agent, filesystem observations, duplicates, rejections and a failing listener; no real second agent has been run
 - [x] Performance and resource usage review — core pipeline: 50,000 events in about 200 ms (about 250,000 events/s), heap delta under 1 MB, history capped at 500. Real watcher burst in the Extension Host (1000 files written in batches of 100, report in `TESTING.md`): no events lost, extension-host event-loop lag at most 41 ms with AgentLens disabled, enabled with the view hidden and enabled with the view visible, heap delta within about 3 MB. One earlier run showed a single 909 ms lag that did not reproduce in four later runs and was not explained. Not measured: CPU of VS Code's own file-watcher process, memory over hours of idle use, macOS and Linux; the test disk was slow (about 40-60 files/s), which may hide bursts that arrive faster

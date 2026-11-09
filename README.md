@@ -32,6 +32,7 @@ AgentLens tracks the activity of AI Coding Agents that modify files within your 
 - [WORKFLOW.md](WORKFLOW.md) — How to Work with AI
 - [GIT.md](GIT.md) — Branch, Commit, and Push
 - [SECURITY.md](SECURITY.md) — Security and Privacy
+- [INTEGRATIONS.md](INTEGRATIONS.md) — What each agent offers
 - [TESTING.md](TESTING.md) — Testing Guidelines
 - [DECISIONS.md](DECISIONS.md) — Architecture Decision Records
 - [RELEASE.md](RELEASE.md) — Packaging and release checklist
