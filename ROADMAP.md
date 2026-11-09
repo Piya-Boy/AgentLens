@@ -1,0 +1,93 @@
+# Roadmap — AgentLens
+
+Statuses in this document represent plans, not confirmation that features are complete.
+
+## Phase 0 — Project Foundation
+
+- [ ] Create VS Code Extension scaffold
+- [ ] Configure TypeScript, esbuild, ESLint, and test runner
+- [ ] Add enable/disable AgentLens command
+- [ ] Add basic configuration
+- [ ] Verify activation and deactivation
+- [ ] Add README and development instructions
+
+**Exit criteria:** Extension loads in Extension Development Host without errors and build passes.
+
+## Phase 1 — Core Event System
+
+- [ ] Define AgentFileEvent schema
+- [ ] Event validation and path normalization
+- [ ] Event Manager
+- [ ] Session Manager
+- [ ] Event deduplication
+- [ ] Mock event command for testing
+- [ ] Focus Controller
+- [ ] Auto Focus / Pause / Resume
+
+**Exit criteria:** Sending a mock pre-edit event successfully opens the correct file safely.
+
+## Phase 2 — Filesystem Fallback
+
+- [ ] Implement FileSystemWatcher
+- [ ] Detect create/change/delete
+- [ ] Distinguish filesystem observations from agent events
+- [ ] Workspace boundary validation
+- [ ] Ignore patterns and debounce
+- [ ] Test files modified from Terminal/WSL
+
+**Exit criteria:** Changes made outside VS Code are detected without claiming them as pre-edit events.
+
+## Phase 3 — First Agent Integration
+
+- [ ] Review current Claude Code hook/event documentation
+- [ ] Design adapter based on actual payload structure
+- [ ] Receive pre-edit events
+- [ ] Map session and tool name
+- [ ] Handle timeout, malformed payload, and duplicate events
+- [ ] End-to-end testing
+
+**Exit criteria:** Test evidence confirms events arrive before edits and the file opens before the Agent acts.
+
+## Phase 4 — Activity UI
+
+- [ ] AgentLens Activity Bar
+- [ ] Active Agents / Sessions view
+- [ ] Recent Activity TreeView
+- [ ] StatusBar
+- [ ] Event history
+- [ ] Filter by Agent, Session, and Action
+
+**Exit criteria:** Users can inspect activity and status from the UI.
+
+## Phase 5 — Smart Focus and Tab Management
+
+- [ ] Focus queue and arbitration
+- [ ] Debounce / cooldown
+- [ ] Manual mode
+- [ ] Prevent stealing the active editor
+- [ ] Tab safety evaluation
+- [ ] Max tabs setting (default 5)
+- [ ] Never close pinned/dirty/active/agent-working tabs
+- [ ] Test VS Code API constraints
+
+**Exit criteria:** Focus and tab management cause no data loss and do not unnecessarily disrupt the user.
+
+## Phase 6 — More Integrations and Hardening
+
+- [ ] Explore Codex integration based on actual API
+- [ ] Explore Cursor integration based on actual API
+- [ ] Generic adapter contract
+- [ ] Multi-agent / multi-session tests
+- [ ] Performance and resource usage review
+- [ ] Security review
+- [ ] Packaging and release checklist
+
+## Definition of Done
+
+A feature is considered done when:
+- Acceptance criteria pass.
+- Relevant tests pass.
+- No known critical bugs remain.
+- Diff has been reviewed.
+- Documentation is updated to match the code.
+- Commits are clearly separated.
