@@ -41,7 +41,7 @@ Never trust file paths from an adapter without validation.
 - Store only necessary metadata.
 - Limit history retention.
 - Do not store file content.
-- Sanitize error messages before displaying them.
+- Sanitize error messages before displaying them (output-channel lines are escaped and length-limited by `safeLogText`; notification text is not covered).
 - Support clearing history.
 
 ## 6. Safe Editor Behavior
@@ -77,7 +77,7 @@ Code was read, nothing was run; Unix socket behaviour, the real named-pipe ACL a
 | 4 | low | Rewriting settings loosened the file mode | fixed |
 | 5 | low | Hook command quoting unsafe for paths containing `"`, backtick, `$`, `%`, `!` | fixed (install refuses such paths) |
 | 6 | low | Uninstall matched any command containing the marker | fixed (exact match on the trailing marker) |
-| 7 | low | A tool name with newlines could forge lines in the output channel | open |
+| 7 | low | A tool name with newlines could forge lines in the output channel | fixed: every output-channel line goes through `safeLogText`, which escapes control characters, line and paragraph separators and text-direction overrides and cuts lines at 500 characters |
 | 8 | low | The connection timeout reset on every byte and connections were not capped | fixed: absolute 2 s deadline per connection and at most 16 connections (unit-tested with a slow drip and an overflow) |
 | 9 | low | A path can be swapped for a symlink between the real-path check and the open | accepted: the file is only shown, never sent anywhere, and the attacker already needs write access to the workspace |
 | 10 | low | SECURITY.md and README were out of date | fixed |

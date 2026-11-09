@@ -19,6 +19,7 @@ import { EnabledState } from "./core/enabled-state";
 import { FilesystemDetector } from "./detectors/filesystem-detector";
 import { PauseState } from "./core/pause-state";
 import { EventManager, type IngestResult } from "./core/event-manager";
+import { safeLogText } from "./core/log-text";
 import { createMockEvent } from "./core/mock-event";
 import { runAdapter } from "./adapters/adapter";
 import { claudeCodeAdapter } from "./adapters/claude/pre-tool-use";
@@ -46,6 +47,9 @@ function describeError(error: unknown): string {
 
 export function activate(context: vscode.ExtensionContext): AgentLensApi {
   const output = vscode.window.createOutputChannel("AgentLens");
+  const log = (line: string): void => {
+    output.appendLine(safeLogText(line));
+  };
   const enabledState = new EnabledState(context.workspaceState);
   const pauseState = new PauseState();
   const sessionManager = new SessionManager();
@@ -54,13 +58,13 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
   const eventManager = new EventManager({
     getWorkspaceRoots: workspaceRoots,
     reportListenerError: (error) => {
-      output.appendLine(`Event listener failed: ${describeError(error)}`);
+      log(`Event listener failed: ${describeError(error)}`);
     },
   });
 
   const typingTracker = new TypingTracker();
   const reportFocusError = (error: unknown): void => {
-    output.appendLine(`Focus failed: ${describeError(error)}`);
+    log(`Focus failed: ${describeError(error)}`);
   };
   const tabController = new TabController<VscodeTab>({
     listTabs: listVscodeTabs,
@@ -88,7 +92,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     const result = eventManager.ingest(input);
     if (!result.accepted) {
       const details = result.reason === "invalid" ? `: ${result.errors.join("; ")}` : "";
-      output.appendLine(`Rejected event (${result.reason})${details}`);
+      log(`Rejected event (${result.reason})${details}`);
     }
     return result;
   };
@@ -99,7 +103,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     },
     getIgnoredFolders: () => readConfig().ignoredFolders,
     reportError: (error) => {
-      output.appendLine(`Filesystem detector failed: ${describeError(error)}`);
+      log(`Filesystem detector failed: ${describeError(error)}`);
     },
   });
 
@@ -107,13 +111,13 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     onMessage: (message) => {
       const parsed = runAdapter(claudeCodeAdapter, message, Date.now());
       if (!parsed.ok) {
-        output.appendLine(`Ignored hook message (${parsed.reason}): ${parsed.detail}`);
+        log(`Ignored hook message (${parsed.reason}): ${parsed.detail}`);
         return;
       }
       ingest(parsed.event);
     },
     reportError: (error) => {
-      output.appendLine(`Hook listener: ${describeError(error)}`);
+      log(`Hook listener: ${describeError(error)}`);
     },
   });
 
@@ -146,7 +150,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     watchTyping(typingTracker),
     filesystemDetector,
     hookListener,
-    ...registerHookCommands(context.extensionPath, output),
+    ...registerHookCommands(context.extensionPath, { appendLine: log }),
     ...registerUi({ activityStore, filterState, sessionManager, enabledState, pauseState }),
     vscode.commands.registerCommand("agentlens.enable", () => setEnabled(true)),
     vscode.commands.registerCommand("agentlens.disable", () => setEnabled(false)),
@@ -159,25 +163,25 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     vscode.commands.registerCommand("agentlens.clearHistory", () => {
       activityStore.clear();
       sessionManager.clear();
-      output.appendLine("History cleared");
+      log("History cleared");
     }),
     vscode.commands.registerCommand("agentlens.sendMockEvent", sendMockEvent),
     pauseState.onDidChange((paused) => {
-      output.appendLine(`Focus ${paused ? "paused" : "resumed"}`);
+      log(`Focus ${paused ? "paused" : "resumed"}`);
     }),
     enabledState.onDidChange((enabled) => {
-      output.appendLine(`State changed: ${enabled ? "enabled" : "disabled"}`);
+      log(`State changed: ${enabled ? "enabled" : "disabled"}`);
     }),
     eventManager.onEvent((event) => {
       sessionManager.record(event);
       activityStore.add(event);
-      output.appendLine(`Event ${event.status} ${event.action} ${event.filePath} (${event.agentId}/${event.sessionId})`);
+      log(`Event ${event.status} ${event.action} ${event.filePath} (${event.agentId}/${event.sessionId})`);
       void focusController.handle(event);
     }),
   );
 
   const config = readConfig();
-  output.appendLine(
+  log(
     `Activated (${enabledState.isEnabled ? "enabled" : "disabled"}, focusMode=${config.focusMode}, maxTabs=${String(config.maxTabs)})`,
   );
 

@@ -16,7 +16,7 @@ async function confirm(message: string, detail: string, action: string): Promise
   return choice === action;
 }
 
-function report(result: InstallResult, output: vscode.OutputChannel, done: string, unchanged: string): void {
+function report(result: InstallResult, output: Pick<vscode.OutputChannel, "appendLine">, done: string, unchanged: string): void {
   if (!result.ok) {
     output.appendLine(`Claude Code hook: ${result.error}`);
     void vscode.window.showErrorMessage(`AgentLens: ${result.error}`);
@@ -25,7 +25,7 @@ function report(result: InstallResult, output: vscode.OutputChannel, done: strin
   void vscode.window.showInformationMessage(`AgentLens: ${result.changed ? done : unchanged}`);
 }
 
-export function registerHookCommands(extensionPath: string, output: vscode.OutputChannel): vscode.Disposable[] {
+export function registerHookCommands(extensionPath: string, output: Pick<vscode.OutputChannel, "appendLine">): vscode.Disposable[] {
   return [
     vscode.commands.registerCommand("agentlens.installClaudeHook", async () => {
       const settingsPath = settingsPathForWorkspace();
