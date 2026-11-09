@@ -3,6 +3,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as vscode from "vscode";
+import { ActivityFilterState } from "../../core/activity-filter";
 import { ActivityStore } from "../../core/activity-store";
 import { SessionManager } from "../../core/session-manager";
 import type { AgentLensApi, IngestOutcome } from "../../extension";
@@ -216,7 +217,7 @@ const cases: readonly TestCase[] = [
         sessions.record(event);
       }
 
-      const activity = new ActivityTreeProvider(store, () => "time");
+      const activity = new ActivityTreeProvider(store, new ActivityFilterState(), () => "time");
       const sessionsView = new SessionsTreeProvider(sessions, () => "time");
       try {
         const labels = activity.getChildren().map((event) => {
@@ -231,6 +232,53 @@ const cases: readonly TestCase[] = [
       } finally {
         activity.dispose();
         sessionsView.dispose();
+      }
+      return Promise.resolve();
+    },
+  },
+  {
+    name: "filters activity through the filter command and clears the filter",
+    run: async (api) => {
+      await vscode.commands.executeCommand("agentlens.filterActivity", { agentId: "mock", action: "edit" });
+      assert.deepEqual(api.activityFilter(), { agentId: "mock", action: "edit" });
+
+      await vscode.commands.executeCommand("agentlens.filterActivity", { action: "write" });
+      assert.deepEqual(api.activityFilter(), { agentId: "mock", action: "edit" });
+
+      await vscode.commands.executeCommand("agentlens.clearActivityFilter");
+      assert.deepEqual(api.activityFilter(), {});
+    },
+  },
+  {
+    name: "applies the filter to the activity tree",
+    run: () => {
+      const store = new ActivityStore();
+      const filterState = new ActivityFilterState();
+      const base = {
+        eventId: "e1",
+        agentId: "claude-code",
+        sessionId: "s1",
+        action: "edit",
+        status: "started",
+        filePath: fixtureFile(),
+        timestamp: 1000,
+        source: "adapter",
+      } as const;
+      store.add(base);
+      store.add({ ...base, eventId: "e2", agentId: "unknown", sessionId: "filesystem" });
+
+      const provider = new ActivityTreeProvider(store, filterState, () => "time");
+      try {
+        assert.equal(provider.getChildren().length, 2);
+        filterState.set({ agentId: "unknown" });
+        assert.deepEqual(
+          provider.getChildren().map((event) => event.eventId),
+          ["e2"],
+        );
+        filterState.clear();
+        assert.equal(provider.getChildren().length, 2);
+      } finally {
+        provider.dispose();
       }
       return Promise.resolve();
     },

@@ -61,11 +61,11 @@ Statuses in this document represent plans, not confirmation that features are co
 - [x] Recent Activity TreeView — newest first; observed filesystem events are labelled `observed`, adapter events keep their status; click opens the file
 - [x] StatusBar — shows active, paused or off; click opens the AgentLens view
 - [x] Event history — in-memory, newest first, capped at 500 events, metadata only; `AgentLens: Clear Activity History` clears it and the session list. Not persisted across reloads yet
-- [ ] Filter by Agent, Session, and Action
+- [x] Filter by Agent, Session, and Action — filters the Recent Activity view only (not Sessions); `AgentLens: Filter Activity...` opens a picker, or accepts `{ agentId, sessionId, action }` as an argument; the filter is in-memory and shown in the view description
 
 **Exit criteria:** Users can inspect activity and status from the UI.
 
-**Evidence:** `test:integration` (12/12) registers the view container and renders tree items from the real providers; unit tests 174/174. The UI has not been inspected visually (no screenshot or manual F5 session), and filtering is not implemented yet.
+**Evidence:** `test:integration` (12/12) registers the view container and renders tree items from the real providers; unit tests 174/174. The UI has not been inspected visually (no screenshot or manual F5 session), and the QuickPick flow was not driven interactively (only the programmatic form is tested).
 
 ## Phase 5 — Smart Focus and Tab Management
 

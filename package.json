@@ -35,6 +35,20 @@
         }
       ]
     },
+    "menus": {
+      "view/title": [
+        {
+          "command": "agentlens.filterActivity",
+          "when": "view == agentlens.activity",
+          "group": "navigation"
+        },
+        {
+          "command": "agentlens.clearActivityFilter",
+          "when": "view == agentlens.activity && agentlens.filterActive",
+          "group": "navigation"
+        }
+      ]
+    },
     "viewsWelcome": [
       {
         "view": "agentlens.sessions",
@@ -42,7 +56,13 @@
       },
       {
         "view": "agentlens.activity",
-        "contents": "No agent activity yet. Pre-edit events and file changes made in the workspace appear here."
+        "contents": "No agent activity yet. Pre-edit events and file changes made in the workspace appear here.",
+        "when": "!agentlens.filterActive"
+      },
+      {
+        "view": "agentlens.activity",
+        "contents": "No activity matches the current filter.",
+        "when": "agentlens.filterActive"
       }
     ],
     "commands": [
@@ -70,6 +90,18 @@
         "command": "agentlens.clearHistory",
         "title": "Clear Activity History",
         "category": "AgentLens"
+      },
+      {
+        "command": "agentlens.filterActivity",
+        "title": "Filter Activity...",
+        "category": "AgentLens",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "agentlens.clearActivityFilter",
+        "title": "Clear Activity Filter",
+        "category": "AgentLens",
+        "icon": "$(clear-all)"
       },
       {
         "command": "agentlens.sendMockEvent",

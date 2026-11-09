@@ -3,6 +3,7 @@ import * as vscode from "vscode";
 import { readConfig } from "./config";
 import { FocusController } from "./controllers/focus-controller";
 import { openFileForObservation } from "./controllers/vscode-file-opener";
+import { ActivityFilterState, type ActivityFilter } from "./core/activity-filter";
 import { ActivityStore } from "./core/activity-store";
 import { EnabledState } from "./core/enabled-state";
 import { FilesystemDetector } from "./detectors/filesystem-detector";
@@ -21,6 +22,7 @@ export interface AgentLensApi {
   isPaused(): boolean;
   sessions(): readonly SessionInfo[];
   history(): readonly AgentFileEvent[];
+  activityFilter(): ActivityFilter;
 }
 
 function describeError(error: unknown): string {
@@ -33,6 +35,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
   const pauseState = new PauseState();
   const sessionManager = new SessionManager();
   const activityStore = new ActivityStore();
+  const filterState = new ActivityFilterState();
   const eventManager = new EventManager({
     getWorkspaceRoots: workspaceRoots,
     reportListenerError: (error) => {
@@ -97,7 +100,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
   context.subscriptions.push(
     output,
     filesystemDetector,
-    ...registerUi({ activityStore, sessionManager, enabledState, pauseState }),
+    ...registerUi({ activityStore, filterState, sessionManager, enabledState, pauseState }),
     vscode.commands.registerCommand("agentlens.enable", () => setEnabled(true)),
     vscode.commands.registerCommand("agentlens.disable", () => setEnabled(false)),
     vscode.commands.registerCommand("agentlens.pause", () => {
@@ -136,6 +139,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     isPaused: () => pauseState.isPaused,
     sessions: () => sessionManager.list(),
     history: () => activityStore.list(),
+    activityFilter: () => filterState.filter,
   };
 }
 

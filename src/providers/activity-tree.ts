@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { describeEvent, type TimeFormatter } from "../core/activity-format";
+import { filterActivity, type ActivityFilterState } from "../core/activity-filter";
 import type { ActivityStore } from "../core/activity-store";
 import type { AgentFileEvent } from "../models/agent-file-event";
 
@@ -7,21 +8,23 @@ export const defaultTimeFormatter: TimeFormatter = (timestamp) => new Date(times
 
 export class ActivityTreeProvider implements vscode.TreeDataProvider<AgentFileEvent>, vscode.Disposable {
   private readonly changed = new vscode.EventEmitter<void>();
-  private readonly subscription: { dispose(): void };
+  private readonly subscriptions: { dispose(): void }[];
 
   readonly onDidChangeTreeData = this.changed.event;
 
   constructor(
     private readonly store: ActivityStore,
+    private readonly filterState: ActivityFilterState,
     private readonly formatTime: TimeFormatter = defaultTimeFormatter,
   ) {
-    this.subscription = store.onDidChange(() => {
+    const refresh = (): void => {
       this.changed.fire();
-    });
+    };
+    this.subscriptions = [store.onDidChange(refresh), filterState.onDidChange(refresh)];
   }
 
   getChildren(): AgentFileEvent[] {
-    return [...this.store.list()];
+    return filterActivity(this.store.list(), this.filterState.filter);
   }
 
   getTreeItem(event: AgentFileEvent): vscode.TreeItem {
@@ -42,7 +45,9 @@ export class ActivityTreeProvider implements vscode.TreeDataProvider<AgentFileEv
   }
 
   dispose(): void {
-    this.subscription.dispose();
+    for (const subscription of this.subscriptions) {
+      subscription.dispose();
+    }
     this.changed.dispose();
   }
 }
