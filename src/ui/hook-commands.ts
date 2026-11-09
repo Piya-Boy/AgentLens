@@ -1,7 +1,7 @@
 import nodePath from "node:path";
 import * as vscode from "vscode";
 import { installHook, uninstallHook, type InstallResult } from "../adapters/claude/hook-installer";
-import { buildHookCommand } from "../adapters/claude/hook-settings";
+import { buildHookCommand, isShellSafePath } from "../adapters/claude/hook-settings";
 
 const CONFIRM_INSTALL = "Install";
 const CONFIRM_UNINSTALL = "Remove";
@@ -33,7 +33,14 @@ export function registerHookCommands(extensionPath: string, output: vscode.Outpu
         void vscode.window.showErrorMessage("AgentLens: open a folder before installing the Claude Code hook.");
         return;
       }
-      const hookCommand = buildHookCommand(nodePath.join(extensionPath, "dist", "hook.js"));
+      const hookScriptPath = nodePath.join(extensionPath, "dist", "hook.js");
+      if (!isShellSafePath(hookScriptPath)) {
+        const message = `the extension path contains a character a shell would expand (${hookScriptPath}); the hook was not installed`;
+        output.appendLine(`Claude Code hook: ${message}`);
+        void vscode.window.showErrorMessage(`AgentLens: ${message}`);
+        return;
+      }
+      const hookCommand = buildHookCommand(hookScriptPath);
       const accepted = await confirm(
         "Add the AgentLens hook to Claude Code in this workspace?",
         [

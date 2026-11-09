@@ -12,13 +12,20 @@ function isObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** Characters that a shell expands or that end the quoted path inside the generated command. */
+const SHELL_UNSAFE_PATH = /["`$%!\r\n\0]/;
+
+export function isShellSafePath(hookScriptPath: string): boolean {
+  return !SHELL_UNSAFE_PATH.test(hookScriptPath);
+}
+
 export function buildHookCommand(hookScriptPath: string): string {
   const portablePath = hookScriptPath.replaceAll("\\", "/");
   return `node "${portablePath}" ${HOOK_MARKER}`;
 }
 
 function isOurHandler(handler: unknown): boolean {
-  return isObject(handler) && typeof handler.command === "string" && handler.command.includes(HOOK_MARKER);
+  return isObject(handler) && typeof handler.command === "string" && handler.command.endsWith(` ${HOOK_MARKER}`);
 }
 
 function withoutOurHandlers(groups: unknown[]): unknown[] {
