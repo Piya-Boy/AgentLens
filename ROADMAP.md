@@ -85,7 +85,7 @@ Statuses in this document represent plans, not confirmation that features are co
 - [ ] Explore Codex integration based on actual API
 - [ ] Explore Cursor integration based on actual API
 - [ ] Generic adapter contract
-- [ ] Multi-agent / multi-session tests
+- [x] Multi-agent / multi-session tests — unit-level pipeline tests with interleaved Claude Code sessions, a second agent, filesystem observations, duplicates, rejections and a failing listener; no real second agent has been run
 - [ ] Performance and resource usage review
 - [ ] Security review
 - [ ] Packaging and release checklist
