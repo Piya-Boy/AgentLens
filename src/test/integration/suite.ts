@@ -60,7 +60,29 @@ async function sendMockEvent(filePath: string): Promise<IngestOutcome | undefine
 
 interface TestCase {
   readonly name: string;
+  readonly platform?: NodeJS.Platform;
   readonly run: (api: AgentLensApi) => Promise<void>;
+}
+
+function sawFilesystemEvent(api: AgentLensApi, filePath: string, action: string, since: number): boolean {
+  const expected = path.normalize(filePath).toLowerCase();
+  return api
+    .history()
+    .some(
+      (event) =>
+        event.source === "filesystem" &&
+        event.action === action &&
+        event.timestamp >= since &&
+        path.normalize(event.filePath).toLowerCase() === expected,
+    );
+}
+
+function runPowerShell(script: string): Promise<number | null> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], { stdio: "ignore" });
+    child.on("error", reject);
+    child.on("close", resolve);
+  });
 }
 
 const cases: readonly TestCase[] = [
@@ -325,6 +347,73 @@ const cases: readonly TestCase[] = [
     },
   },
   {
+    name: "observes file creation, modification, rename and deletion made by PowerShell",
+    platform: "win32",
+    run: async (api) => {
+      const first = fixtureFile("external-ps-a.txt");
+      const second = fixtureFile("external-ps-b.txt");
+      const since = Date.now();
+      try {
+        const exitCode = await runPowerShell(
+          [
+            `Set-Content -Path '${first}' -Value 'created'`,
+            "Start-Sleep -Milliseconds 700",
+            `Add-Content -Path '${first}' -Value 'more'`,
+            "Start-Sleep -Milliseconds 700",
+            `Move-Item -Path '${first}' -Destination '${second}'`,
+            "Start-Sleep -Milliseconds 700",
+            `Remove-Item -Path '${second}'`,
+          ].join("; "),
+        );
+        assert.equal(exitCode, 0, "the PowerShell script failed");
+        await waitFor(
+          () =>
+            sawFilesystemEvent(api, first, "create", since) &&
+            sawFilesystemEvent(api, first, "edit", since) &&
+            sawFilesystemEvent(api, first, "delete", since) &&
+            sawFilesystemEvent(api, second, "create", since) &&
+            sawFilesystemEvent(api, second, "delete", since),
+          8000,
+        );
+        assert.equal(isFixtureVisible("external-ps-a.txt"), false);
+        assert.equal(isFixtureVisible("external-ps-b.txt"), false);
+      } finally {
+        await fs.rm(first, { force: true });
+        await fs.rm(second, { force: true });
+      }
+    },
+  },
+  {
+    name: "observes files written by a command that runs inside a VS Code integrated terminal",
+    run: async (api) => {
+      const target = fixtureFile("external-terminal.txt");
+      const isWindows = process.platform === "win32";
+      const script = isWindows
+        ? `Set-Content -Path '${target}' -Value 'created'; Start-Sleep -Milliseconds 700; Add-Content -Path '${target}' -Value 'more'; Start-Sleep -Milliseconds 700; Remove-Item -Path '${target}'`
+        : `echo created > '${target}'; sleep 0.7; echo more >> '${target}'; sleep 0.7; rm '${target}'`;
+      const since = Date.now();
+      const terminal = vscode.window.createTerminal({
+        name: "AgentLens test",
+        cwd: path.dirname(target),
+        shellPath: isWindows ? "powershell.exe" : "/bin/sh",
+        shellArgs: isWindows ? ["-NoProfile", "-NoLogo", "-Command", script] : ["-c", script],
+      });
+      try {
+        await waitFor(
+          () =>
+            sawFilesystemEvent(api, target, "create", since) &&
+            sawFilesystemEvent(api, target, "edit", since) &&
+            sawFilesystemEvent(api, target, "delete", since),
+          20000,
+        );
+        assert.equal(isFixtureVisible("external-terminal.txt"), false);
+      } finally {
+        terminal.dispose();
+        await fs.rm(target, { force: true });
+      }
+    },
+  },
+  {
     name: "keeps event history and clears it with the clear history command",
     run: async (api) => {
       await delay(600);
@@ -504,6 +593,10 @@ export async function run(): Promise<void> {
 
   const failures: string[] = [];
   for (const testCase of cases) {
+    if (testCase.platform !== undefined && testCase.platform !== process.platform) {
+      console.log(`  SKIP ${testCase.name} (needs ${testCase.platform})`);
+      continue;
+    }
     try {
       await testCase.run(api);
       console.log(`  PASS ${testCase.name}`);

@@ -37,11 +37,11 @@ Statuses in this document represent plans, not confirmation that features are co
 - [x] Distinguish filesystem observations from agent events — source `filesystem`, status `observed`, agent `unknown`; the Focus Controller never acts on them
 - [x] Workspace boundary validation — enforced by the shared event validator for filesystem events too; real-path check before opening files added later
 - [x] Ignore patterns and debounce — folders from `agentlens.ignoredFolders` (default `.git`, `node_modules`) at any depth; 200 ms per-file debounce plus the 500 ms deduplication window
-- [ ] Test files modified from Terminal/WSL — only simulated with a Node.js writer inside the integration test; no real terminal, PowerShell or WSL run yet
+- [ ] Test files modified from Terminal/WSL — done: real Windows PowerShell (`Set-Content`, `Add-Content`, `Move-Item`, `Remove-Item`) and a command run inside a VS Code integrated terminal are observed as create/edit/delete and not opened. Open: WSL (not usable on this machine), and typed input in an integrated terminal (`terminal.sendText` never executed in the test host, so only commands passed as shell arguments were exercised). Windows only; the POSIX variant of the terminal test has not been run
 
 **Exit criteria:** Changes made outside VS Code are detected without claiming them as pre-edit events.
 
-**Evidence:** `test:integration` (9/9) shows a file created, appended and deleted on disk is recorded as `observed` by agent `unknown`, and is not opened. Unit tests: 129/129. Not covered: real Terminal/PowerShell/WSL writers, large bursts, symlinks.
+**Evidence:** `test:integration` (9/9) shows a file created, appended and deleted on disk is recorded as `observed` by agent `unknown`, and is not opened. Unit tests: 129/129. Later: `test:integration` (22/22) also covers PowerShell and an integrated-terminal command. Not covered: WSL, large bursts, symlinks.
 
 ## Phase 3 — First Agent Integration
 
