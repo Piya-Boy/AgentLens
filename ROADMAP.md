@@ -8,7 +8,7 @@ Statuses in this document represent plans, not confirmation that features are co
 - [x] Configure TypeScript, esbuild, ESLint, and test runner
 - [x] Add enable/disable AgentLens command
 - [x] Add basic configuration
-- [x] Verify activation and deactivation — activation verified by integration test. Deactivation: a one-off probe showed VS Code calls `deactivate()` at host termination, and `test:integration` now fails if the host does not log termination or logs an error from the extension bundle (report in `TESTING.md`). Effects of individual disposables are not observed
+- [x] Verify activation and deactivation — activation verified by integration test. Found later that the integration test hid a gap: it activates the extension itself, and the manifest had no `activationEvents`, so a real window did not start AgentLens until its view or a command was used (probe: inactive after 20 s). Fixed with `onStartupFinished` (probe: active after 257 ms) and guarded by a manifest unit test. Deactivation: a one-off probe showed VS Code calls `deactivate()` at host termination, and `test:integration` now fails if the host does not log termination or logs an error from the extension bundle (report in `TESTING.md`). Effects of individual disposables are not observed
 - [x] Add README and development instructions
 
 **Exit criteria:** Extension loads in Extension Development Host without errors and build passes.

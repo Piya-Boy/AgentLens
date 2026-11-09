@@ -186,3 +186,12 @@ Record:
 - Actual: unit suite 462 passed, 10 skipped (472; 58 of them new). Integration 27 of 27 passed on 1.145.2 and on 1.90.0, and the host shut down cleanly. With the `application` scope removed the workspace-settings test failed, as intended; the scope was restored and the test passed again. The real URL answered HTTP 404 on 2026-11-09 because the repository has no release.
 - Result: PASS
 - Limits of the check: the tests use a loopback server and fake releases, so no real release has been parsed. The 5 s timeout and the notification dialog were not exercised (nothing in the integration suite calls the network). The automatic start-up check was not run in a live host with the setting on. Behaviour behind a proxy or a corporate network (global `fetch` in the extension host) is untested. Linux and macOS were not run for this change.
+
+### 2026-11-09 — Activation without an explicit activate() call
+
+- Environment: Windows 11, VS Code 1.145.2 (Extension Development Host started with a scratch folder, `--disable-extensions`, own user-data folder). The probe was a scratch suite outside the repository.
+- Steps: open a folder with the extension under development, never call `activate()`, and poll `extension.isActive` for up to 20 s. Run once with the manifest as it was and once with `"activationEvents": ["onStartupFinished"]`.
+- Expected: the extension is active shortly after the window has started, because it has to watch files and receive hook events without the user opening anything.
+- Actual: without `activationEvents` the extension was still inactive after 20 154 ms. With `onStartupFinished` it was active after 257 ms.
+- Result: FAIL before the fix, PASS after it
+- Limits of the check: one host, one run each. The integration suite cannot tell the two cases apart because it calls `activate()` itself; the manifest is guarded only by a unit test of its `activationEvents`. Not run on 1.90.0, Linux or macOS.
