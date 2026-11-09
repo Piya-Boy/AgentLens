@@ -18,7 +18,7 @@ Statuses in this document represent plans, not confirmation that features are co
 ## Phase 1 — Core Event System
 
 - [x] Define AgentFileEvent schema
-- [x] Event validation and path normalization — lexical only (absolute path, `..` collapse, workspace boundary, size limits); symlink resolution per SECURITY §2 is not implemented yet
+- [x] Event validation and path normalization — lexical on ingest (absolute path, `..` collapse, workspace boundary, size limits); symlinks and junctions are resolved before a file is opened and files resolving outside the workspace are not opened (see SECURITY §2)
 - [x] Event Manager — validate and dispatch with listener error isolation; not wired into the extension yet
 - [x] Session Manager — in-memory, keyed by agent and session id, capped at 50 sessions (least recently updated evicted); not wired into the extension or persisted yet
 - [x] Event deduplication — same event id per agent/session, or identical content within a 500 ms window; bounded to 1000 entries; wired into Event Manager. The 500 ms window is a proposed default, not validated against a real agent
@@ -35,7 +35,7 @@ Statuses in this document represent plans, not confirmation that features are co
 - [x] Implement FileSystemWatcher — one `**/*` watcher via `createFileSystemWatcher`; directories are skipped
 - [x] Detect create/change/delete — mapped to actions create/edit/delete; integration test covers a file created, appended and removed
 - [x] Distinguish filesystem observations from agent events — source `filesystem`, status `observed`, agent `unknown`; the Focus Controller never acts on them
-- [x] Workspace boundary validation — enforced by the shared event validator for filesystem events too (lexical; symlinks still unresolved)
+- [x] Workspace boundary validation — enforced by the shared event validator for filesystem events too; real-path check before opening files added later
 - [x] Ignore patterns and debounce — folders from `agentlens.ignoredFolders` (default `.git`, `node_modules`) at any depth; 200 ms per-file debounce plus the 500 ms deduplication window
 - [ ] Test files modified from Terminal/WSL — only simulated with a Node.js writer inside the integration test; no real terminal, PowerShell or WSL run yet
 

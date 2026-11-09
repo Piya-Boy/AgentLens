@@ -15,6 +15,7 @@ Every event must be validated:
 - Confirm it lies within an allowed Workspace.
 - Prevent path traversal attacks.
 - Handle symlinks according to a clearly defined policy.
+  - Policy: event paths are validated lexically on ingest. Before AgentLens opens a file, it resolves the real path (following symlinks and junctions) and opens it only if the real path is also inside a workspace root; otherwise the file is not opened and the failure is logged. The event itself is still recorded.
 - Reject paths that cannot be safely verified.
 
 Never trust file paths from an adapter without validation.
