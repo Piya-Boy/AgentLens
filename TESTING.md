@@ -82,7 +82,7 @@ Record:
   - Replay result: one accepted event, agent `claude-code`, action `edit`, status `started`, source `adapter`, tool `Write`, correct path, no file content.
 - Result: PASS
 - Not covered: a live VS Code window with the installed hook receiving a real session (the receiving side was exercised by the integration test and by the replay above, not in the same run); other Claude Code versions; interactive (non-headless) mode; Unix sockets.
-- Transport note: the replay ran before the per-user endpoint secret was added, so it used the older path-hash endpoint name. The current secret-based path is covered by the integration test and unit tests, and this real-session replay was not repeated with it.
+- Transport note: the replay ran before the per-user endpoint secret was added, so it used the older path-hash endpoint name. The current secret-based path is covered by the integration test and unit tests, and by the later real sessions in the report "Real Claude Code sessions with the endpoint secret" below.
 ### 2026-11-09 — Filesystem fallback with real shells
 
 - Environment: Windows 11, VS Code 1.145.2 (integration host), Windows PowerShell 5.1 and PowerShell 7 installed
@@ -104,6 +104,19 @@ Record:
   - The first typed probe wrote create, edit and delete with no pause between them and recorded nothing; with 700 ms pauses it works. The watcher merges operations that happen within a few milliseconds. This probably explains the earlier failure, but that was not re-run to confirm.
 - Result: PASS on 1.145.2 (26/26). The same three cases also passed on VS Code 1.90.0 (26/26, shutdown check passed).
 - Not covered: a Remote-WSL window (the extension host would run inside WSL), the POSIX variants of the terminal tests, other WSL distributions, macOS and Linux.
+
+### 2026-11-09 — Real Claude Code sessions with the endpoint secret
+
+- Environment: Windows 11, Claude Code 2.1.319 (`claude -p`, model haiku, `--permission-mode acceptEdits`), the real per-user secret in `%LOCALAPPDATA%\agentlens\endpoint-secret`, VS Code 1.145.2 for the second step. Temporary project folders outside the repository; the prompts were trivial and no repository source was involved. The harness (scratch files, not committed) reused the repository's own installer, endpoint, secret and `IpcServer` code.
+- Steps:
+  1. The repository's `installHook` wrote the hook into the temporary project's `.claude/settings.local.json` (command `node "E:/Develop/CODING/AgentLens/dist/hook.js" --agentlens`). A scratch `IpcServer` listened on the endpoint derived from the real secret. A headless Claude Code session in that folder was asked to create `hello.txt` with the Write tool.
+  2. The same project folder was opened in an Extension Development Host with AgentLens active. The file `notes.txt` existed (`one`). A real Claude Code session was started from the host and asked to replace its contents with `two` using the Write tool. The test waited for the AgentLens event and for the file to appear in a visible editor.
+- Expected: the hook, started by Claude Code with its own environment, finds the endpoint and delivers the path; AgentLens records a `claude-code` event and opens the file before the change.
+- Actual:
+  - Step 1: the listener received one `PreToolUse` message with `tool_name` `Write`, the real session id and tool-use id, the project folder as `cwd` and the target path; the message had no `content` field. `hello.txt` was created and the session replied `done`.
+  - Step 2: AgentLens recorded one event (`agentId` `claude-code`, `action` `edit`, `status` `started`, `source` `adapter`, `toolName` `Write`, the real path) about 10 s after the session started (model latency) and `notes.txt` was visible in an editor at that moment (it was not open before). The file then contained `two` and the session replied `done`.
+- Result: PASS
+- Not covered: other Claude Code versions, interactive (non-headless) sessions, the `Edit` tool, several sessions at once, and a hook and window started with different environment values (see the Linux report for that limit). Step 2 shows the file visible after the event; it does not prove the open happened before Claude Code wrote the file, only that the event is a `started` pre-edit event.
 
 ### 2026-11-09 — Unit suite on Linux (WSL2)
 
