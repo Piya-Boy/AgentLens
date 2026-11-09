@@ -15,6 +15,11 @@ afterAll(async () => {
   await rm(base, { recursive: true, force: true });
 });
 
+async function privateFolder(folder: string): Promise<void> {
+  await mkdir(folder, { recursive: true });
+  await chmod(folder, 0o700);
+}
+
 async function scenario(bundled: string): Promise<{ source: string; target: string; folder: string }> {
   caseCount += 1;
   const root = path.join(base, `case-${String(caseCount)}`);
@@ -92,7 +97,8 @@ describe("deployHookScript", () => {
 
   it("refuses a folder in the place of the script", async () => {
     const { source, target } = await scenario("hook v1");
-    await mkdir(target, { recursive: true });
+    await privateFolder(path.dirname(target));
+    await mkdir(target);
 
     expect(() => deployHookScript(source, target)).toThrow("not a regular file");
   });
@@ -109,7 +115,7 @@ describe("deployHookScript", () => {
     const { source, target, folder } = await scenario("hook v1");
     const victim = path.join(base, `victim-${String(caseCount)}`);
     await writeFile(victim, "keep me");
-    await mkdir(folder, { recursive: true });
+    await privateFolder(folder);
     await symlink(victim, target);
 
     expect(() => deployHookScript(source, target)).toThrow("not a regular file");
@@ -117,9 +123,32 @@ describe("deployHookScript", () => {
     expect(await readFile(victim, "utf8")).toBe("keep me");
   });
 
+  it.skipIf(process.platform === "win32")("refuses a folder that others can write and writes nothing into it", async () => {
+    const { source, target, folder } = await scenario("hook v1");
+    await mkdir(folder, { recursive: true });
+    await chmod(folder, 0o777);
+
+    expect(() => deployHookScript(source, target)).toThrow("writable by others");
+
+    expect(await readdir(folder)).toEqual([]);
+  });
+
+  it.skipIf(process.platform === "win32")("refuses a folder that is a symbolic link", async () => {
+    const { source, target, folder } = await scenario("hook v1");
+    const elsewhere = path.join(base, `elsewhere-${String(caseCount)}`);
+    await mkdir(elsewhere, { recursive: true });
+    await mkdir(path.dirname(folder), { recursive: true });
+    await symlink(elsewhere, folder);
+
+    expect(() => deployHookScript(source, target)).toThrow("link or not a folder");
+
+    expect(await readdir(elsewhere)).toEqual([]);
+  });
+
   it.skipIf(process.platform === "win32")("refuses a copy that others can write", async () => {
-    const { source, target } = await scenario("hook v1");
+    const { source, target, folder } = await scenario("hook v1");
     deployHookScript(source, target);
+    await chmod(folder, 0o700);
     await chmod(target, 0o666);
 
     expect(() => deployHookScript(source, target)).toThrow("writable by others");

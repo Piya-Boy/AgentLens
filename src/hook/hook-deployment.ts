@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { lstatSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync, type Stats } from "node:fs";
 import nodePath from "node:path";
 import { secretFilePath, type SecretLocation } from "../transport/endpoint-secret";
 
@@ -7,6 +7,7 @@ export type DeployStatus = "created" | "updated" | "unchanged";
 
 const PRIVATE_FILE_MODE = 0o600;
 const PRIVATE_DIRECTORY_MODE = 0o700;
+const OTHERS_CAN_WRITE = 0o022;
 
 /**
  * Where Claude Code is told to find the hook. It sits beside the endpoint secret, so it does not
@@ -20,23 +21,58 @@ function isMissing(error: unknown): boolean {
   return error instanceof Error && "code" in error && (error as NodeJS.ErrnoException).code === "ENOENT";
 }
 
-/** The reason the target must not be replaced or run, or undefined when it is absent or ours. */
-function unusableReason(target: string): string | undefined {
-  let info: ReturnType<typeof lstatSync>;
+function lstatOrUndefined(target: string): Stats | undefined {
   try {
-    info = lstatSync(target);
+    return lstatSync(target);
   } catch (error) {
     if (isMissing(error)) {
       return undefined;
     }
     throw error;
   }
-  if (!info.isFile()) {
-    return "it is not a regular file";
+}
+
+function readOrUndefined(target: string): Buffer | undefined {
+  try {
+    return readFileSync(target);
+  } catch (error) {
+    if (isMissing(error)) {
+      return undefined;
+    }
+    throw error;
   }
+}
+
+function belongsToAnotherUser(info: Stats): boolean {
   const uid = typeof process.getuid === "function" ? process.getuid() : undefined;
-  if (uid !== undefined && (info.uid !== uid || (info.mode & 0o022) !== 0)) {
-    return "it is owned by another user or writable by others";
+  return uid !== undefined && info.uid !== uid;
+}
+
+/** Claude Code runs this file on every edit, so whoever can replace it or its folder runs code as the user. */
+function untrustedFolderReason(folder: string): string | undefined {
+  const info = lstatOrUndefined(folder);
+  if (info === undefined) {
+    return undefined;
+  }
+  if (info.isSymbolicLink() || !info.isDirectory()) {
+    return `${folder} is a link or not a folder`;
+  }
+  if (belongsToAnotherUser(info) || (process.platform !== "win32" && (info.mode & OTHERS_CAN_WRITE) !== 0)) {
+    return `${folder} is owned by another user or writable by others`;
+  }
+  return undefined;
+}
+
+function untrustedFileReason(target: string): string | undefined {
+  const info = lstatOrUndefined(target);
+  if (info === undefined) {
+    return undefined;
+  }
+  if (!info.isFile()) {
+    return `${target} is not a regular file`;
+  }
+  if (belongsToAnotherUser(info) || (process.platform !== "win32" && (info.mode & OTHERS_CAN_WRITE) !== 0)) {
+    return `${target} is owned by another user or writable by others`;
   }
   return undefined;
 }
@@ -44,33 +80,37 @@ function unusableReason(target: string): string | undefined {
 /**
  * Makes `target` an exact copy of the bundled hook script. The copy is written whole to a
  * temporary file and renamed into place, so a hook that starts during an update runs either the old
- * or the new script, never half of one. A target that is a link, a folder or another user's file is
- * refused rather than written through.
+ * or the new script, never half of one. A folder or file that is a link, belongs to another user or
+ * can be written by others is refused rather than written through, because Claude Code runs the
+ * result.
  */
 export function deployHookScript(source: string, target: string): DeployStatus {
   const content = readFileSync(source);
-  const reason = unusableReason(target);
+  const folder = nodePath.dirname(target);
+  const reason = untrustedFolderReason(folder) ?? untrustedFileReason(target);
   if (reason !== undefined) {
-    throw new Error(`hook script ${target} was not replaced because ${reason}; delete it and reload the window`);
+    throw new Error(`hook script was not written because ${reason}; fix or delete it and reload the window`);
   }
 
-  let existing: Buffer | undefined;
-  try {
-    existing = readFileSync(target);
-  } catch (error) {
-    if (!isMissing(error)) {
-      throw error;
-    }
-  }
+  const existing = readOrUndefined(target);
   if (existing?.equals(content) === true) {
     return "unchanged";
   }
 
-  mkdirSync(nodePath.dirname(target), { recursive: true, mode: PRIVATE_DIRECTORY_MODE });
+  mkdirSync(folder, { recursive: true, mode: PRIVATE_DIRECTORY_MODE });
   const temporary = `${target}.${randomBytes(6).toString("hex")}.tmp`;
   try {
     writeFileSync(temporary, content, { flag: "wx", mode: PRIVATE_FILE_MODE });
-    renameSync(temporary, target);
+    try {
+      renameSync(temporary, target);
+    } catch (error) {
+      // Another window starting at the same time may have put the same script there first, and
+      // Windows then refuses the second rename. The goal is met, so that is not a failure.
+      if (readOrUndefined(target)?.equals(content) === true) {
+        return "unchanged";
+      }
+      throw error;
+    }
   } finally {
     rmSync(temporary, { force: true });
   }
