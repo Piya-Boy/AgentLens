@@ -6,10 +6,14 @@ import type { AgentLensApi, IngestOutcome } from "../../extension";
 
 const EXTENSION_NAME = "agentlens";
 
-function fixtureFile(): string {
+function fixtureFile(name = "sample.txt"): string {
   const folder = vscode.workspace.workspaceFolders?.[0];
   assert.ok(folder, "fixture workspace is not open");
-  return path.join(folder.uri.fsPath, "sample.txt");
+  return path.join(folder.uri.fsPath, name);
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function waitFor(condition: () => boolean, timeoutMs = 5000): Promise<void> {
@@ -18,12 +22,12 @@ async function waitFor(condition: () => boolean, timeoutMs = 5000): Promise<void
     if (Date.now() > deadline) {
       throw new Error("timed out waiting for condition");
     }
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await delay(50);
   }
 }
 
-function isFixtureVisible(): boolean {
-  const expected = path.normalize(fixtureFile());
+function isFixtureVisible(name = "sample.txt"): boolean {
+  const expected = path.normalize(fixtureFile(name));
   return vscode.window.visibleTextEditors.some((editor) => path.normalize(editor.document.uri.fsPath) === expected);
 }
 
@@ -99,6 +103,30 @@ const cases: readonly TestCase[] = [
         await vscode.commands.executeCommand("agentlens.enable");
       }
       assert.equal(api.isEnabled(), true);
+    },
+  },
+  {
+    name: "does not open files while paused and opens them again after resume",
+    run: async (api) => {
+      const target = fixtureFile("other.txt");
+      await vscode.commands.executeCommand("workbench.action.closeAllEditors");
+      await vscode.commands.executeCommand("agentlens.pause");
+      try {
+        assert.equal(api.isPaused(), true);
+        const before = api.sessions().find((candidate) => candidate.agentId === "mock")?.eventCount ?? 0;
+        const paused = await sendMockEvent(target);
+        assert.equal(paused?.accepted, true);
+        assert.equal(api.sessions().find((candidate) => candidate.agentId === "mock")?.eventCount, before + 1);
+        await delay(600);
+        assert.equal(isFixtureVisible("other.txt"), false);
+      } finally {
+        await vscode.commands.executeCommand("agentlens.resume");
+      }
+      assert.equal(api.isPaused(), false);
+
+      const resumed = await sendMockEvent(target);
+      assert.equal(resumed?.accepted, true);
+      await waitFor(() => isFixtureVisible("other.txt"));
     },
   },
   {

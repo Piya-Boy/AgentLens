@@ -26,6 +26,16 @@
         "category": "AgentLens"
       },
       {
+        "command": "agentlens.pause",
+        "title": "Pause Auto Focus",
+        "category": "AgentLens"
+      },
+      {
+        "command": "agentlens.resume",
+        "title": "Resume Auto Focus",
+        "category": "AgentLens"
+      },
+      {
         "command": "agentlens.sendMockEvent",
         "title": "Send Mock Pre-edit Event for Active File",
         "category": "AgentLens"

@@ -4,6 +4,7 @@ import { readConfig } from "./config";
 import { FocusController } from "./controllers/focus-controller";
 import { openFileForObservation } from "./controllers/vscode-file-opener";
 import { EnabledState } from "./core/enabled-state";
+import { PauseState } from "./core/pause-state";
 import { EventManager, type IngestResult } from "./core/event-manager";
 import { createMockEvent } from "./core/mock-event";
 import { SessionManager, type SessionInfo } from "./core/session-manager";
@@ -12,6 +13,7 @@ export type IngestOutcome = IngestResult | { readonly accepted: false; readonly 
 
 export interface AgentLensApi {
   isEnabled(): boolean;
+  isPaused(): boolean;
   sessions(): readonly SessionInfo[];
 }
 
@@ -28,6 +30,7 @@ function workspaceRoots(): readonly string[] {
 export function activate(context: vscode.ExtensionContext): AgentLensApi {
   const output = vscode.window.createOutputChannel("AgentLens");
   const enabledState = new EnabledState(context.workspaceState);
+  const pauseState = new PauseState();
   const sessionManager = new SessionManager();
   const eventManager = new EventManager({
     getWorkspaceRoots: workspaceRoots,
@@ -38,6 +41,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
 
   const focusController = new FocusController({
     openFile: openFileForObservation,
+    isPaused: () => pauseState.isPaused,
     isAutoFocusEnabled: () => readConfig().autoFocus,
     reportError: (error) => {
       output.appendLine(`Focus failed: ${describeError(error)}`);
@@ -61,6 +65,15 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     void vscode.window.showInformationMessage(`AgentLens ${enabled ? "enabled" : "disabled"}.`);
   };
 
+  const setPaused = (paused: boolean): void => {
+    if (paused) {
+      pauseState.pause();
+    } else {
+      pauseState.resume();
+    }
+    void vscode.window.showInformationMessage(`AgentLens focus ${paused ? "paused" : "resumed"}.`);
+  };
+
   const sendMockEvent = (filePath?: unknown): IngestOutcome | undefined => {
     const target = typeof filePath === "string" ? filePath : vscode.window.activeTextEditor?.document.uri.fsPath;
     if (target === undefined) {
@@ -74,7 +87,16 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     output,
     vscode.commands.registerCommand("agentlens.enable", () => setEnabled(true)),
     vscode.commands.registerCommand("agentlens.disable", () => setEnabled(false)),
+    vscode.commands.registerCommand("agentlens.pause", () => {
+      setPaused(true);
+    }),
+    vscode.commands.registerCommand("agentlens.resume", () => {
+      setPaused(false);
+    }),
     vscode.commands.registerCommand("agentlens.sendMockEvent", sendMockEvent),
+    pauseState.onDidChange((paused) => {
+      output.appendLine(`Focus ${paused ? "paused" : "resumed"}`);
+    }),
     enabledState.onDidChange((enabled) => {
       output.appendLine(`State changed: ${enabled ? "enabled" : "disabled"}`);
     }),
@@ -92,6 +114,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
 
   return {
     isEnabled: () => enabledState.isEnabled,
+    isPaused: () => pauseState.isPaused,
     sessions: () => sessionManager.list(),
   };
 }

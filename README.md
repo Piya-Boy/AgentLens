@@ -48,9 +48,9 @@ npm test                   # unit tests (Vitest, no VS Code dependency)
 npm run test:integration   # runs inside an Extension Development Host; downloads VS Code into .vscode-test/
 ```
 
-Press F5 (`Run Extension`) to launch the Extension Development Host. Commands: `AgentLens: Enable`, `AgentLens: Disable`, `AgentLens: Send Mock Pre-edit Event for Active File` (development aid; the event is validated, deduplicated and recorded in the output channel and session list).
+Press F5 (`Run Extension`) to launch the Extension Development Host. Commands: `AgentLens: Enable`, `AgentLens: Disable`, `AgentLens: Pause Auto Focus`, `AgentLens: Resume Auto Focus`, `AgentLens: Send Mock Pre-edit Event for Active File` (development aid; the event is validated, deduplicated and recorded in the output channel and session list).
 
-The enabled/disabled state is stored in the workspace's `workspaceState`, so AgentLens never writes to `.vscode/settings.json`. Settings `agentlens.autoFocus` and `agentlens.maxTabs` are declared but not used until the focus and tab features land.
+The enabled/disabled state is stored in the workspace's `workspaceState`, so AgentLens never writes to `.vscode/settings.json`. `agentlens.autoFocus` controls whether pre-edit events open files. `agentlens.maxTabs` is declared but not used until tab management lands.
 
 ## Status
 

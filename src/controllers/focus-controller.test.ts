@@ -16,11 +16,14 @@ function event(overrides: Partial<AgentFileEvent> = {}): AgentFileEvent {
   };
 }
 
-function createController(options: { autoFocus?: boolean; openFile?: (filePath: string) => Promise<void> } = {}) {
+function createController(
+  options: { autoFocus?: boolean; paused?: boolean; openFile?: (filePath: string) => Promise<void> } = {},
+) {
   const openFile = vi.fn(options.openFile ?? (() => Promise.resolve()));
   const reportError = vi.fn();
   const controller = new FocusController({
     openFile,
+    isPaused: () => options.paused ?? false,
     isAutoFocusEnabled: () => options.autoFocus ?? true,
     reportError,
   });
@@ -53,6 +56,12 @@ describe("FocusController", () => {
     expect(openFile).not.toHaveBeenCalled();
   });
 
+  it("skips while paused", async () => {
+    const { controller, openFile } = createController({ paused: true });
+    expect(await controller.handle(event())).toEqual({ focused: false, reason: "paused" });
+    expect(openFile).not.toHaveBeenCalled();
+  });
+
   it("skips when auto focus is disabled", async () => {
     const { controller, openFile } = createController({ autoFocus: false });
     expect(await controller.handle(event())).toEqual({ focused: false, reason: "auto-focus-disabled" });
@@ -62,7 +71,12 @@ describe("FocusController", () => {
   it("reads the auto focus setting on every event", async () => {
     let autoFocus = false;
     const openFile = vi.fn(() => Promise.resolve());
-    const controller = new FocusController({ openFile, isAutoFocusEnabled: () => autoFocus, reportError: vi.fn() });
+    const controller = new FocusController({
+      openFile,
+      isPaused: () => false,
+      isAutoFocusEnabled: () => autoFocus,
+      reportError: vi.fn(),
+    });
 
     await controller.handle(event());
     autoFocus = true;

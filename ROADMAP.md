@@ -24,9 +24,11 @@ Statuses in this document represent plans, not confirmation that features are co
 - [x] Event deduplication — same event id per agent/session, or identical content within a 500 ms window; bounded to 1000 entries; wired into Event Manager. The 500 ms window is a proposed default, not validated against a real agent
 - [x] Mock event command for testing — `AgentLens: Send Mock Pre-edit Event for Active File`; Event Manager and Session Manager are wired into the extension; events are recorded but no file is opened until the Focus Controller lands
 - [x] Focus Controller — opens the file (preview tab, without taking input focus) only for adapter events with status `started` and action `edit`; honours `agentlens.autoFocus`; open errors are reported, not thrown. No queue/debounce yet (Phase 5)
-- [ ] Auto Focus / Pause / Resume
+- [x] Auto Focus / Pause / Resume — auto focus on/off via the `agentlens.autoFocus` setting (no toggle command); `AgentLens: Pause Auto Focus` / `Resume Auto Focus` commands; pause is in-memory (resets on reload) and events are still recorded while paused
 
 **Exit criteria:** Sending a mock pre-edit event successfully opens the correct file safely.
+
+**Evidence:** `test:integration` (8/8, real Extension Development Host with a fixture workspace) shows a mock pre-edit event makes the fixture file visible, an event outside the workspace is rejected, and nothing opens while disabled or paused. Unit tests: 109/109. Not yet covered: symlinks, a real agent adapter, queue/debounce.
 
 ## Phase 2 — Filesystem Fallback
 

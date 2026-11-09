@@ -1,6 +1,6 @@
 import type { AgentFileEvent } from "../models/agent-file-event";
 
-export type FocusSkipReason = "not-pre-edit" | "auto-focus-disabled" | "error";
+export type FocusSkipReason = "not-pre-edit" | "paused" | "auto-focus-disabled" | "error";
 
 export type FocusOutcome =
   | { readonly focused: true }
@@ -8,6 +8,7 @@ export type FocusOutcome =
 
 export interface FocusControllerOptions {
   readonly openFile: (filePath: string) => Promise<void>;
+  readonly isPaused: () => boolean;
   readonly isAutoFocusEnabled: () => boolean;
   readonly reportError: (error: unknown) => void;
 }
@@ -22,6 +23,9 @@ export class FocusController {
   async handle(event: AgentFileEvent): Promise<FocusOutcome> {
     if (!isPreEditEvent(event)) {
       return { focused: false, reason: "not-pre-edit" };
+    }
+    if (this.options.isPaused()) {
+      return { focused: false, reason: "paused" };
     }
     if (!this.options.isAutoFocusEnabled()) {
       return { focused: false, reason: "auto-focus-disabled" };
