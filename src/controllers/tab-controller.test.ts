@@ -69,15 +69,30 @@ describe("TabController", () => {
 
   it("forgets a tab the user closed so a reopened file is not treated as ours", async () => {
     const tabs = [tab("a"), tab("b", { isActive: true })];
-    const { controller, closeTabs } = createController({ tabs, maxTabs: 1 });
+    const setup: ControllerSetup = { tabs, maxTabs: 5 };
+    const { controller, closeTabs } = createController(setup);
     controller.trackOpened("a");
+    await controller.enforce();
     tabs.splice(0, 1);
+    await controller.enforce();
+
+    tabs.unshift(tab("a"));
+    setup.maxTabs = 1;
+    await controller.enforce();
+
+    expect(closeTabs).not.toHaveBeenCalled();
+  });
+
+  it("still trims a tab that was missing from the list right after it was opened", async () => {
+    const tabs = [tab("b", { isActive: true })];
+    const { controller, closed } = createController({ tabs, maxTabs: 1 });
+    controller.trackOpened("a");
     await controller.enforce();
 
     tabs.unshift(tab("a"));
     await controller.enforce();
 
-    expect(closeTabs).not.toHaveBeenCalled();
+    expect(closed).toEqual(["a"]);
   });
 
   it("keeps a file an agent is working on", async () => {

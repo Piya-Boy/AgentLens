@@ -17,11 +17,29 @@ describe("OwnedTabs", () => {
     expect(owned.list()).toEqual(["b", "a"]);
   });
 
-  it("forgets keys that have no live tab", () => {
+  it("forgets a tab that was seen and then disappeared", () => {
     const owned = new OwnedTabs();
     owned.markOpened("a");
     owned.markOpened("b");
+    owned.retainOnly(new Set(["a", "b"]));
     owned.retainOnly(new Set(["b", "other"]));
     expect(owned.list()).toEqual(["b"]);
+  });
+
+  it("keeps a tab that has not appeared in any list yet", () => {
+    const owned = new OwnedTabs();
+    owned.markOpened("a");
+    owned.retainOnly(new Set());
+    owned.retainOnly(new Set());
+    expect(owned.list()).toEqual(["a"]);
+  });
+
+  it("treats a reopened file as unseen again", () => {
+    const owned = new OwnedTabs();
+    owned.markOpened("a");
+    owned.retainOnly(new Set(["a"]));
+    owned.markOpened("a");
+    owned.retainOnly(new Set());
+    expect(owned.list()).toEqual(["a"]);
   });
 });

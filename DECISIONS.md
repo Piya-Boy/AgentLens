@@ -50,6 +50,7 @@ Records of key decisions made in AgentLens, so that AI and other contributors un
 - `Tab` exposes `isActive`, `isDirty`, `isPinned`, `isPreview` and, for plain text tabs, the file URI through `TabInputText`. Other tab kinds have no file key and are never closed, but still count toward the limit.
 - Closing a dirty tab opens a confirmation dialog, so dirty tabs are never passed to `close`. A tab that turns dirty between the check and the call is still guarded by that dialog.
 - `preview: true` is ignored when the user disabled preview editors, so every opened file then becomes a permanent tab. That is when trimming matters.
+- The tab model can lag behind `showTextDocument`: the new tab may be missing from `tabGroups` for a moment after the call returns. AgentLens waits up to 1 s for the tab to appear before trimming and forgets an owned tab only after it has been seen and has then gone. One integration run failed intermittently before this was added (the old tab was not closed); the race is the suspected cause and was not reproduced on demand, but four later full runs all passed.
 
 **Consequences:** A file the user already had open is never registered as ours. A file the user later keeps (double-click) stays registered and can still be trimmed unless pinned or edited. Only the 1.145.2 host was exercised; the declared minimum (1.90) was not.
 

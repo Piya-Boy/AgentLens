@@ -1,22 +1,29 @@
 /** Remembers which file tabs AgentLens opened, in the order it opened them. */
 export class OwnedTabs {
-  private readonly keys = new Set<string>();
+  /** Maps a key to whether a tab list has shown its tab yet. Insertion order is opening order. */
+  private readonly confirmed = new Map<string, boolean>();
 
   markOpened(key: string): void {
-    this.keys.delete(key);
-    this.keys.add(key);
+    this.confirmed.delete(key);
+    this.confirmed.set(key, false);
   }
 
   /** Oldest first. */
   list(): string[] {
-    return [...this.keys];
+    return [...this.confirmed.keys()];
   }
 
-  /** Forgets tabs that no longer exist, so a file the user reopens later is theirs. */
+  /**
+   * Forgets tabs that were seen and have since gone, so a file the user reopens later is theirs.
+   * A tab that has not appeared in any list yet is kept, because VS Code can report a new tab
+   * a moment after the open call returns.
+   */
   retainOnly(liveKeys: ReadonlySet<string>): void {
-    for (const key of this.keys) {
-      if (!liveKeys.has(key)) {
-        this.keys.delete(key);
+    for (const [key, wasSeen] of this.confirmed) {
+      if (liveKeys.has(key)) {
+        this.confirmed.set(key, true);
+      } else if (wasSeen) {
+        this.confirmed.delete(key);
       }
     }
   }

@@ -48,6 +48,29 @@ export async function realPathKeys(filePaths: readonly string[]): Promise<Readon
   return new Set(keys);
 }
 
+const TAB_APPEAR_TIMEOUT_MS = 1000;
+
+/** The tab model can lag behind showTextDocument; trimming on a stale list would miss the new tab. */
+function waitForTab(key: string, timeoutMs: number): Promise<void> {
+  const present = (): boolean => listVscodeTabs().some((entry) => entry.key === key);
+  if (present()) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    const finish = (): void => {
+      clearTimeout(timer);
+      subscription.dispose();
+      resolve();
+    };
+    const timer = setTimeout(finish, timeoutMs);
+    const subscription = vscode.window.tabGroups.onDidChangeTabs(() => {
+      if (present()) {
+        finish();
+      }
+    });
+  });
+}
+
 /**
  * Opens a file for observation and lets the tab controller trim old tabs. A file the user
  * already had open stays theirs and is never registered as one AgentLens may close.
@@ -61,6 +84,7 @@ export function createManagedOpener(tabController: TabController<VscodeTab>): (f
     if (!alreadyOpen) {
       tabController.trackOpened(key);
     }
+    await waitForTab(key, TAB_APPEAR_TIMEOUT_MS);
     await tabController.enforce();
   };
 }
