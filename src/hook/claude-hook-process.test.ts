@@ -57,8 +57,13 @@ function secretFile(machine: Machine): string {
   });
 }
 
-function hookEnvironment(machine: Machine): NodeJS.ProcessEnv {
-  return {
+interface HookOptions {
+  /** Leave XDG_RUNTIME_DIR unset and point the temp directory at the runtime folder instead. */
+  readonly runtimeDirFromTemp?: boolean;
+}
+
+function hookEnvironment(machine: Machine, options: HookOptions): NodeJS.ProcessEnv {
+  const environment: NodeJS.ProcessEnv = {
     ...process.env,
     HOME: machine.home,
     USERPROFILE: machine.home,
@@ -66,6 +71,11 @@ function hookEnvironment(machine: Machine): NodeJS.ProcessEnv {
     XDG_STATE_HOME: machine.home,
     XDG_RUNTIME_DIR: machine.runtimeDir,
   };
+  if (options.runtimeDirFromTemp === true) {
+    delete environment.XDG_RUNTIME_DIR;
+    environment.TMPDIR = machine.runtimeDir;
+  }
+  return environment;
 }
 
 function endpointEnvironment(machine: Machine, secret: string): EndpointEnvironment {
@@ -103,10 +113,14 @@ function payload(cwd: string, filePath: string): string {
   });
 }
 
-function runHook(machine: Machine, stdin: string): Promise<{ code: number | null; stdout: string }> {
+function runHook(
+  machine: Machine,
+  stdin: string,
+  options: HookOptions = {},
+): Promise<{ code: number | null; stdout: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [hookScript, "--agentlens"], {
-      env: hookEnvironment(machine),
+      env: hookEnvironment(machine, options),
       stdio: ["pipe", "pipe", "ignore"],
     });
     let stdout = "";
@@ -148,6 +162,21 @@ describe("dist/hook.js as a separate process", () => {
     );
     expect(JSON.stringify(onMessage.mock.calls)).not.toContain("TOP SECRET");
   });
+
+  it.skipIf(process.platform === "win32")(
+    "uses the temp directory for the socket folder when XDG_RUNTIME_DIR is not set",
+    async () => {
+      const machine = await newMachine();
+      const secret = loadOrCreateSecret(secretFile(machine));
+      const root = await newWorkspace(machine);
+      const { onMessage } = await listen(machine, root, secret);
+
+      const result = await runHook(machine, payload(root, path.join(root, "src", "a.ts")), { runtimeDirFromTemp: true });
+
+      expect(result).toEqual({ code: 0, stdout: "" });
+      await waitUntil(() => onMessage.mock.calls.length > 0);
+    },
+  );
 
   it("finds the window of a parent folder when the agent runs in a subfolder", async () => {
     const machine = await newMachine();
