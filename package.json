@@ -49,6 +49,14 @@
           "default": true,
           "description": "Open the file an agent is about to edit when a reliable pre-edit event is received."
         },
+        "agentlens.ignoredFolders": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [".git", "node_modules"],
+          "description": "Folder names whose files are ignored by the filesystem fallback, at any depth."
+        },
         "agentlens.maxTabs": {
           "type": "integer",
           "default": 5,

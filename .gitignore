@@ -4,3 +4,4 @@ out/
 .vscode-test/
 *.vsix
 *.log
+src/test/fixtures/workspace/external-*.txt

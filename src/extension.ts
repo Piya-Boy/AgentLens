@@ -4,10 +4,12 @@ import { readConfig } from "./config";
 import { FocusController } from "./controllers/focus-controller";
 import { openFileForObservation } from "./controllers/vscode-file-opener";
 import { EnabledState } from "./core/enabled-state";
+import { FilesystemDetector } from "./detectors/filesystem-detector";
 import { PauseState } from "./core/pause-state";
 import { EventManager, type IngestResult } from "./core/event-manager";
 import { createMockEvent } from "./core/mock-event";
 import { SessionManager, type SessionInfo } from "./core/session-manager";
+import { workspaceRoots } from "./workspace";
 
 export type IngestOutcome = IngestResult | { readonly accepted: false; readonly reason: "disabled" };
 
@@ -19,12 +21,6 @@ export interface AgentLensApi {
 
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-function workspaceRoots(): readonly string[] {
-  return (vscode.workspace.workspaceFolders ?? [])
-    .filter((folder) => folder.uri.scheme === "file")
-    .map((folder) => folder.uri.fsPath);
 }
 
 export function activate(context: vscode.ExtensionContext): AgentLensApi {
@@ -60,6 +56,16 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     return result;
   };
 
+  const filesystemDetector = new FilesystemDetector({
+    emit: (event) => {
+      ingest(event);
+    },
+    getIgnoredFolders: () => readConfig().ignoredFolders,
+    reportError: (error) => {
+      output.appendLine(`Filesystem detector failed: ${describeError(error)}`);
+    },
+  });
+
   const setEnabled = async (enabled: boolean): Promise<void> => {
     await enabledState.setEnabled(enabled);
     void vscode.window.showInformationMessage(`AgentLens ${enabled ? "enabled" : "disabled"}.`);
@@ -85,6 +91,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
 
   context.subscriptions.push(
     output,
+    filesystemDetector,
     vscode.commands.registerCommand("agentlens.enable", () => setEnabled(true)),
     vscode.commands.registerCommand("agentlens.disable", () => setEnabled(false)),
     vscode.commands.registerCommand("agentlens.pause", () => {

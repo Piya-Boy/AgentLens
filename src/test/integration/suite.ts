@@ -1,4 +1,5 @@
 import * as assert from "node:assert/strict";
+import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as vscode from "vscode";
@@ -127,6 +128,43 @@ const cases: readonly TestCase[] = [
       const resumed = await sendMockEvent(target);
       assert.equal(resumed?.accepted, true);
       await waitFor(() => isFixtureVisible("other.txt"));
+    },
+  },
+  {
+    name: "observes file changes made outside the extension as filesystem events without opening them",
+    run: async (api) => {
+      const target = fixtureFile("external-change.txt");
+      const expectedPath = path.normalize(target).toLowerCase();
+      const unknownSession = () => api.sessions().find((candidate) => candidate.agentId === "unknown");
+      const observed = (action: string, countAbove: number): boolean => {
+        const session = unknownSession();
+        return (
+          session !== undefined &&
+          session.lastStatus === "observed" &&
+          session.lastAction === action &&
+          session.lastFilePath.toLowerCase() === expectedPath &&
+          session.eventCount > countAbove
+        );
+      };
+      const count = (): number => unknownSession()?.eventCount ?? 0;
+
+      try {
+        await fs.writeFile(target, "created by a separate writer\n");
+        await waitFor(() => (unknownSession()?.lastFilePath.toLowerCase() ?? "") === expectedPath);
+        assert.equal(isFixtureVisible("external-change.txt"), false);
+
+        await delay(800);
+        let before = count();
+        await fs.appendFile(target, "appended\n");
+        await waitFor(() => observed("edit", before));
+
+        await delay(800);
+        before = count();
+        await fs.rm(target);
+        await waitFor(() => observed("delete", before));
+      } finally {
+        await fs.rm(target, { force: true });
+      }
     },
   },
   {

@@ -32,14 +32,16 @@ Statuses in this document represent plans, not confirmation that features are co
 
 ## Phase 2 — Filesystem Fallback
 
-- [ ] Implement FileSystemWatcher
-- [ ] Detect create/change/delete
-- [ ] Distinguish filesystem observations from agent events
-- [ ] Workspace boundary validation
-- [ ] Ignore patterns and debounce
-- [ ] Test files modified from Terminal/WSL
+- [x] Implement FileSystemWatcher — one `**/*` watcher via `createFileSystemWatcher`; directories are skipped
+- [x] Detect create/change/delete — mapped to actions create/edit/delete; integration test covers a file created, appended and removed
+- [x] Distinguish filesystem observations from agent events — source `filesystem`, status `observed`, agent `unknown`; the Focus Controller never acts on them
+- [x] Workspace boundary validation — enforced by the shared event validator for filesystem events too (lexical; symlinks still unresolved)
+- [x] Ignore patterns and debounce — folders from `agentlens.ignoredFolders` (default `.git`, `node_modules`) at any depth; 200 ms per-file debounce plus the 500 ms deduplication window
+- [ ] Test files modified from Terminal/WSL — only simulated with a Node.js writer inside the integration test; no real terminal, PowerShell or WSL run yet
 
 **Exit criteria:** Changes made outside VS Code are detected without claiming them as pre-edit events.
+
+**Evidence:** `test:integration` (9/9) shows a file created, appended and deleted on disk is recorded as `observed` by agent `unknown`, and is not opened. Unit tests: 129/129. Not covered: real Terminal/PowerShell/WSL writers, large bursts, symlinks.
 
 ## Phase 3 — First Agent Integration
 
