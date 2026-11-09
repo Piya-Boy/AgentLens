@@ -82,6 +82,7 @@ Record:
   - Replay result: one accepted event, agent `claude-code`, action `edit`, status `started`, source `adapter`, tool `Write`, correct path, no file content.
 - Result: PASS
 - Not covered: a live VS Code window with the installed hook receiving a real session (the receiving side was exercised by the integration test and by the replay above, not in the same run); other Claude Code versions; interactive (non-headless) mode; Unix sockets.
+- Transport note: the replay ran before the per-user endpoint secret was added, so it used the older path-hash endpoint name. The current secret-based path is covered by the integration test and unit tests, and this real-session replay was not repeated with it.
 ### 2026-11-09 — Filesystem fallback with real shells
 
 - Environment: Windows 11, VS Code 1.145.2 (integration host), Windows PowerShell 5.1 and PowerShell 7 installed
