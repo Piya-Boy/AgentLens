@@ -3,11 +3,16 @@ import * as net from "node:net";
 import nodePath from "node:path";
 import { MAX_FORWARD_BYTES } from "../hook/forward-message";
 
+/** Absolute time a connection may stay open; it is not extended by incoming bytes. */
 export const CONNECTION_TIMEOUT_MS = 2000;
+
+export const MAX_CONNECTIONS = 16;
 
 export interface IpcServerOptions {
   readonly onMessage: (message: unknown) => void;
   readonly reportError: (error: unknown) => void;
+  readonly connectionTimeoutMs?: number;
+  readonly maxConnections?: number;
 }
 
 function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
@@ -71,6 +76,7 @@ export class IpcServer {
     }
 
     const server = net.createServer();
+    server.maxConnections = options.maxConnections ?? MAX_CONNECTIONS;
     const instance = new IpcServer(server, endpoint, usesSocketFile);
     server.on("connection", (socket) => {
       instance.handleConnection(socket, options);
@@ -116,13 +122,14 @@ export class IpcServer {
 
   private handleConnection(socket: net.Socket, options: IpcServerOptions): void {
     this.sockets.add(socket);
+    const deadline = setTimeout(() => {
+      socket.destroy();
+    }, options.connectionTimeoutMs ?? CONNECTION_TIMEOUT_MS);
     socket.on("close", () => {
+      clearTimeout(deadline);
       this.sockets.delete(socket);
     });
     socket.on("error", options.reportError);
-    socket.setTimeout(CONNECTION_TIMEOUT_MS, () => {
-      socket.destroy();
-    });
 
     const chunks: Buffer[] = [];
     let size = 0;

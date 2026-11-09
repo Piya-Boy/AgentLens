@@ -2,16 +2,30 @@ import { realpathSync } from "node:fs";
 import * as net from "node:net";
 import * as os from "node:os";
 import { directoryChain, endpointForRoot, type EndpointEnvironment } from "../transport/endpoint";
+import { readSecret, secretFilePath } from "../transport/endpoint-secret";
 import { buildForwardMessage, type ForwardMessage } from "./forward-message";
 
 const CONNECT_TIMEOUT_MS = 300;
 const HARD_TIMEOUT_MS = 2000;
 
-function environment(): EndpointEnvironment {
+/** Undefined when no AgentLens window has ever run for this user, so there is nobody to tell. */
+function environment(): EndpointEnvironment | undefined {
+  const secret = readSecret(
+    secretFilePath({
+      platform: process.platform,
+      homeDir: os.homedir(),
+      localAppData: process.env.LOCALAPPDATA,
+      xdgStateHome: process.env.XDG_STATE_HOME,
+    }),
+  );
+  if (secret === undefined) {
+    return undefined;
+  }
   return {
     platform: process.platform,
     runtimeDir: process.env.XDG_RUNTIME_DIR ?? os.tmpdir(),
     uid: typeof process.getuid === "function" ? process.getuid() : 0,
+    secret,
   };
 }
 
@@ -57,6 +71,9 @@ async function forward(message: ForwardMessage): Promise<void> {
     return;
   }
   const env = environment();
+  if (env === undefined) {
+    return;
+  }
   for (const directory of directoryChain(realCwd)) {
     if (await send(endpointForRoot(directory, env), message)) {
       return;

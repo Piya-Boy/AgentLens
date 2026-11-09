@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as vscode from "vscode";
 import { workspaceRoots } from "../workspace";
 import { endpointForRoot, type EndpointEnvironment } from "./endpoint";
+import { loadOrCreateSecret, secretFilePath } from "./endpoint-secret";
 import { IpcServer } from "./ipc-server";
 
 export interface HookListenerOptions {
@@ -11,10 +12,19 @@ export interface HookListenerOptions {
 }
 
 function endpointEnvironment(): EndpointEnvironment {
+  const secret = loadOrCreateSecret(
+    secretFilePath({
+      platform: process.platform,
+      homeDir: os.homedir(),
+      localAppData: process.env.LOCALAPPDATA,
+      xdgStateHome: process.env.XDG_STATE_HOME,
+    }),
+  );
   return {
     platform: process.platform,
     runtimeDir: process.env.XDG_RUNTIME_DIR ?? os.tmpdir(),
     uid: typeof process.getuid === "function" ? process.getuid() : 0,
+    secret,
   };
 }
 
@@ -52,7 +62,13 @@ export class HookListener implements vscode.Disposable {
   }
 
   private async desiredEndpoints(): Promise<Set<string>> {
-    const environment = endpointEnvironment();
+    let environment: EndpointEnvironment;
+    try {
+      environment = endpointEnvironment();
+    } catch (error) {
+      this.options.reportError(error);
+      return new Set();
+    }
     const results = await Promise.allSettled(workspaceRoots().map((root) => realpath(root)));
     const endpoints = new Set<string>();
     for (const result of results) {

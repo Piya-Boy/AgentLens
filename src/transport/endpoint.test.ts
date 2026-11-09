@@ -2,8 +2,9 @@ import nodePath from "node:path";
 import { describe, expect, it } from "vitest";
 import { directoryChain, endpointForRoot, socketDirectory, type EndpointEnvironment } from "./endpoint";
 
-const linux: EndpointEnvironment = { platform: "linux", runtimeDir: "/run/user/1000", uid: 1000 };
-const windows: EndpointEnvironment = { platform: "win32", runtimeDir: "C:\\Temp", uid: 0 };
+const secret = "a".repeat(64);
+const linux: EndpointEnvironment = { platform: "linux", runtimeDir: "/run/user/1000", uid: 1000, secret };
+const windows: EndpointEnvironment = { platform: "win32", runtimeDir: "C:\\Temp", uid: 0, secret };
 
 describe("endpointForRoot", () => {
   it("is stable for the same root", () => {

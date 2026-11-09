@@ -28,6 +28,7 @@ function newEndpoint(): string {
     platform: process.platform,
     runtimeDir,
     uid: typeof process.getuid === "function" ? process.getuid() : 0,
+    secret: "b".repeat(64),
   });
 }
 
@@ -174,5 +175,68 @@ describe("IpcServer", () => {
     await startServer(endpoint);
 
     await expect(IpcServer.listen(endpoint, { onMessage: vi.fn(), reportError: vi.fn() })).rejects.toThrow();
+  });
+});
+
+describe("IpcServer connection limits", () => {
+  function openIdle(endpoint: string): Promise<net.Socket> {
+    return new Promise((resolve, reject) => {
+      const socket = net.createConnection(endpoint);
+      socket.on("error", () => undefined);
+      socket.once("connect", () => {
+        resolve(socket);
+      });
+      socket.once("error", reject);
+    });
+  }
+
+  function closed(socket: net.Socket): Promise<void> {
+    return new Promise((resolve) => {
+      if (socket.destroyed) {
+        resolve();
+        return;
+      }
+      socket.once("close", () => {
+        resolve();
+      });
+    });
+  }
+
+  it("closes a connection at the deadline even when bytes keep arriving", async () => {
+    const endpoint = newEndpoint();
+    const reportError = vi.fn();
+    servers.push(await IpcServer.listen(endpoint, { onMessage: vi.fn(), reportError, connectionTimeoutMs: 300 }));
+    const socket = await openIdle(endpoint);
+    const started = Date.now();
+    const drip = setInterval(() => {
+      if (!socket.destroyed) {
+        socket.write("x");
+      }
+    }, 50);
+
+    await closed(socket);
+    clearInterval(drip);
+
+    expect(Date.now() - started).toBeLessThan(1500);
+  });
+
+  it("drops connections beyond the limit and serves again once they close", async () => {
+    const endpoint = newEndpoint();
+    const onMessage = vi.fn();
+    servers.push(await IpcServer.listen(endpoint, { onMessage, reportError: vi.fn(), maxConnections: 2 }));
+    const held = [await openIdle(endpoint), await openIdle(endpoint)];
+
+    const extra = await openIdle(endpoint);
+    await closed(extra);
+    expect(held.every((socket) => !socket.destroyed)).toBe(true);
+
+    for (const socket of held) {
+      socket.destroy();
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await sendRaw(endpoint, `${JSON.stringify({ again: true })}\n`);
+    await waitUntil(() => onMessage.mock.calls.length > 0);
+
+    expect(onMessage).toHaveBeenCalledExactlyOnceWith({ again: true });
   });
 });

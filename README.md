@@ -63,7 +63,7 @@ AgentLens learns about edits before they happen through a Claude Code `PreToolUs
 3. Start Claude Code in that folder, including from an external terminal. Files it is about to edit open in a preview tab.
 
 - The hook is a small `node` script (`dist/hook.js`), so `node` must be on your PATH. It never blocks Claude Code, always exits 0 and prints nothing.
-- It sends only the file path, session id, tool name and working directory to this VS Code window over a local socket owned by your user. File contents are dropped before leaving the hook. Nothing uses the network.
+- It sends only the file path, session id, tool name and working directory to this VS Code window over a local socket (a named pipe on Windows) whose name is derived from a random per-user secret kept in `%LOCALAPPDATA%agentlens` (Windows) or `~/.local/state/agentlens`; the hook sends nothing if that file does not exist. File contents are dropped before leaving the hook. Nothing uses the network.
 - After the extension is updated its folder changes; run the install command again to refresh the path.
 - `AgentLens: Uninstall Claude Code Hook` removes only the AgentLens entry.
 - Tested with the documented payload format, the real hook script, and a real Claude Code 2.1.319 session (see `TESTING.md`). A single run with a live VS Code window, the installed hook and a live session together has not been recorded.
