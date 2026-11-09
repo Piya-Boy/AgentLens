@@ -8,7 +8,7 @@ Statuses in this document represent plans, not confirmation that features are co
 - [x] Configure TypeScript, esbuild, ESLint, and test runner
 - [x] Add enable/disable AgentLens command
 - [x] Add basic configuration
-- [ ] Verify activation and deactivation — activation verified by integration test; deactivation only indirectly (host exits with code 0), no dedicated test yet
+- [x] Verify activation and deactivation — activation verified by integration test. Deactivation: a one-off probe showed VS Code calls `deactivate()` at host termination, and `test:integration` now fails if the host does not log termination or logs an error from the extension bundle (report in `TESTING.md`). Effects of individual disposables are not observed
 - [x] Add README and development instructions
 
 **Exit criteria:** Extension loads in Extension Development Host without errors and build passes.

@@ -91,6 +91,17 @@ Record:
 - Actual: all expected events were recorded and nothing was opened. Result: PASS
 - Not covered: WSL; typing into an integrated terminal (`terminal.sendText` did not run the command in the test host, with or without a shell profile, so that approach was abandoned); macOS and Linux.
 
+### 2026-11-09 — Extension deactivation
+
+- Environment: Windows 11, VS Code 1.145.2 (integration host)
+- Steps:
+  1. A temporary probe in `deactivate()` appended a line to a file outside the repository; the integration suite ran; the probe was then removed (not committed).
+  2. `scripts/run-integration.mjs` now runs the host with its own `--user-data-dir`, and `scripts/verify-deactivation.mjs` reads the host's `exthost.log` after the run.
+- Expected: VS Code calls `deactivate()` when the host terminates, and disposing the extension's subscriptions logs no error from the extension bundle.
+- Actual: the probe file had one line written at host termination, so `deactivate()` runs. The permanent check requires the host to log `Extension host terminating` and no `[error]` entry whose stack contains `dist/extension.js` of this repository. It passed on a full run (23/23). It does not blame the error `Canceled: Canceled` that the built-in TypeScript extension logs at the same moment. Checked against synthetic logs: clean, foreign-extension error, bundle error (path and `file:///` forms), missing terminate line.
+- Result: PASS
+- Not covered: the effects of each disposable (for example that the hook pipe closes) are not observed; the host process exit would close them anyway. A log line from `deactivate()` is lost because the host cancels its RPC channel while terminating, so the output channel cannot be used as evidence. Reload and window-close paths were not run separately.
+
 ### 2026-11-09 — Filesystem watcher burst
 
 - Environment: Windows 11, VS Code 1.145.2 (integration host), fixture workspace on a local disk
