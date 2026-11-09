@@ -11,7 +11,7 @@ import type { AgentLensApi, IngestOutcome } from "../../extension";
 import { ActivityTreeProvider } from "../../providers/activity-tree";
 import { SessionsTreeProvider } from "../../providers/sessions-tree";
 
-const EXTENSION_NAME = "agentlens";
+const EXTENSION_NAME = "agentlens-file-monitor";
 let extensionRoot = "";
 
 function bundledHookScript(): string {
