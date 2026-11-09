@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { linkSync, lstatSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import * as os from "node:os";
 import nodePath from "node:path";
 
 export interface SecretLocation {
@@ -7,6 +8,15 @@ export interface SecretLocation {
   readonly homeDir: string;
   readonly localAppData?: string | undefined;
   readonly xdgStateHome?: string | undefined;
+}
+
+export function secretLocationFromProcess(): SecretLocation {
+  return {
+    platform: process.platform,
+    homeDir: os.homedir(),
+    localAppData: process.env.LOCALAPPDATA,
+    xdgStateHome: process.env.XDG_STATE_HOME,
+  };
 }
 
 const SECRET_PATTERN = /^[0-9a-f]{64}$/;

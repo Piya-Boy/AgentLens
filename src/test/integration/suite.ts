@@ -14,9 +14,17 @@ import { SessionsTreeProvider } from "../../providers/sessions-tree";
 const EXTENSION_NAME = "agentlens";
 let extensionRoot = "";
 
-function runHookScript(stdin: string, cwd: string): Promise<{ code: number | null; stdout: string }> {
+function bundledHookScript(): string {
+  return path.join(extensionRoot, "dist", "hook.js");
+}
+
+function runHookScript(
+  stdin: string,
+  cwd: string,
+  script = bundledHookScript(),
+): Promise<{ code: number | null; stdout: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn("node", [path.join(extensionRoot, "dist", "hook.js")], { cwd, stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawn("node", [script], { cwd, stdio: ["pipe", "pipe", "pipe"] });
     let stdout = "";
     child.stdout.on("data", (chunk: Buffer) => {
       stdout += chunk.toString("utf8");
@@ -797,6 +805,35 @@ const cases: readonly TestCase[] = [
       await waitFor(() => api.sessions().some((session) => session.agentId === "claude-code" && session.sessionId === "e2e-session"));
       await waitFor(() => isFixtureVisible("third.txt"));
       assert.equal(JSON.stringify(api.history()).includes("TOP SECRET"), false);
+    },
+  },
+  {
+    name: "keeps an identical copy of the hook script at a path that does not contain the extension folder, and delivers through it",
+    run: async (api) => {
+      const copy = api.hookScriptPath();
+      assert.ok(path.isAbsolute(copy));
+      assert.equal(copy.startsWith(extensionRoot), false, "the copy must not live in the versioned extension folder");
+      assert.deepEqual(await fs.readFile(copy), await fs.readFile(bundledHookScript()));
+
+      await waitFor(() => api.hookEndpoints().length > 0);
+      await vscode.commands.executeCommand("workbench.action.closeAllEditors");
+      assert.equal(isFixtureVisible("other.txt"), false);
+      const workspaceRoot = path.dirname(fixtureFile());
+      const payload = JSON.stringify({
+        session_id: "stable-copy-session",
+        cwd: workspaceRoot,
+        hook_event_name: "PreToolUse",
+        tool_name: "Edit",
+        tool_input: { file_path: fixtureFile("other.txt") },
+        tool_use_id: "toolu_stable_1",
+      });
+
+      const result = await runHookScript(payload, workspaceRoot, copy);
+      assert.equal(result.code, 0);
+      assert.equal(result.stdout, "");
+
+      await waitFor(() => api.sessions().some((session) => session.sessionId === "stable-copy-session"));
+      await waitFor(() => isFixtureVisible("other.txt"));
     },
   },
   {

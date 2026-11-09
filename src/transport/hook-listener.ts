@@ -3,7 +3,7 @@ import * as os from "node:os";
 import * as vscode from "vscode";
 import { workspaceRoots } from "../workspace";
 import { endpointForRoot, type EndpointEnvironment } from "./endpoint";
-import { loadOrCreateSecret, secretFilePath } from "./endpoint-secret";
+import { loadOrCreateSecret, secretFilePath, secretLocationFromProcess } from "./endpoint-secret";
 import { IpcServer } from "./ipc-server";
 
 export interface HookListenerOptions {
@@ -12,14 +12,7 @@ export interface HookListenerOptions {
 }
 
 function endpointEnvironment(): EndpointEnvironment {
-  const secret = loadOrCreateSecret(
-    secretFilePath({
-      platform: process.platform,
-      homeDir: os.homedir(),
-      localAppData: process.env.LOCALAPPDATA,
-      xdgStateHome: process.env.XDG_STATE_HOME,
-    }),
-  );
+  const secret = loadOrCreateSecret(secretFilePath(secretLocationFromProcess()));
   return {
     platform: process.platform,
     runtimeDir: process.env.XDG_RUNTIME_DIR ?? os.tmpdir(),

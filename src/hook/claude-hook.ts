@@ -2,7 +2,7 @@ import { realpathSync } from "node:fs";
 import * as net from "node:net";
 import * as os from "node:os";
 import { directoryChain, endpointForRoot, type EndpointEnvironment } from "../transport/endpoint";
-import { readSecret, secretFilePath } from "../transport/endpoint-secret";
+import { readSecret, secretFilePath, secretLocationFromProcess } from "../transport/endpoint-secret";
 import { buildForwardMessage, type ForwardMessage } from "./forward-message";
 
 const CONNECT_TIMEOUT_MS = 300;
@@ -10,14 +10,7 @@ const HARD_TIMEOUT_MS = 2000;
 
 /** Undefined when no AgentLens window has ever run for this user, so there is nobody to tell. */
 function environment(): EndpointEnvironment | undefined {
-  const secret = readSecret(
-    secretFilePath({
-      platform: process.platform,
-      homeDir: os.homedir(),
-      localAppData: process.env.LOCALAPPDATA,
-      xdgStateHome: process.env.XDG_STATE_HOME,
-    }),
-  );
+  const secret = readSecret(secretFilePath(secretLocationFromProcess()));
   if (secret === undefined) {
     return undefined;
   }

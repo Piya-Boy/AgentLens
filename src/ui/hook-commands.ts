@@ -25,7 +25,8 @@ function report(result: InstallResult, output: Pick<vscode.OutputChannel, "appen
   void vscode.window.showInformationMessage(`AgentLens: ${result.changed ? done : unchanged}`);
 }
 
-export function registerHookCommands(extensionPath: string, output: Pick<vscode.OutputChannel, "appendLine">): vscode.Disposable[] {
+/** `deployHook` puts the current hook script at its stable path and returns that path, or throws. */
+export function registerHookCommands(deployHook: () => string, output: Pick<vscode.OutputChannel, "appendLine">): vscode.Disposable[] {
   return [
     vscode.commands.registerCommand("agentlens.installClaudeHook", async () => {
       const settingsPath = settingsPathForWorkspace();
@@ -33,9 +34,17 @@ export function registerHookCommands(extensionPath: string, output: Pick<vscode.
         void vscode.window.showErrorMessage("AgentLens: open a folder before installing the Claude Code hook.");
         return;
       }
-      const hookScriptPath = nodePath.join(extensionPath, "dist", "hook.js");
+      let hookScriptPath: string;
+      try {
+        hookScriptPath = deployHook();
+      } catch (error) {
+        const message = `the hook script could not be prepared (${error instanceof Error ? error.message : String(error)}); the hook was not installed`;
+        output.appendLine(`Claude Code hook: ${message}`);
+        void vscode.window.showErrorMessage(`AgentLens: ${message}`);
+        return;
+      }
       if (!isShellSafePath(hookScriptPath)) {
-        const message = `the extension path contains a character a shell would expand (${hookScriptPath}); the hook was not installed`;
+        const message = `the hook script path contains a character a shell would expand (${hookScriptPath}); the hook was not installed`;
         output.appendLine(`Claude Code hook: ${message}`);
         void vscode.window.showErrorMessage(`AgentLens: ${message}`);
         return;
@@ -48,6 +57,7 @@ export function registerHookCommands(extensionPath: string, output: Pick<vscode.
           `Hook (PreToolUse, Edit|Write): ${hookCommand}`,
           "",
           "The hook only reports the file path, session id and tool name to this VS Code window. It never blocks Claude Code and never sends file contents. It needs node on your PATH.",
+          "The script is a copy that AgentLens keeps up to date, so this entry stays valid when the extension updates.",
           "Existing settings are kept. Remove it later with AgentLens: Uninstall Claude Code Hook.",
         ].join("\n"),
         CONFIRM_INSTALL,

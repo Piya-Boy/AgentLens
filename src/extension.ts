@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import nodePath from "node:path";
 import * as vscode from "vscode";
 import { readConfig } from "./config";
 import { FocusController } from "./controllers/focus-controller";
@@ -25,6 +26,8 @@ import { runAdapter } from "./adapters/adapter";
 import { claudeCodeAdapter } from "./adapters/claude/pre-tool-use";
 import type { AgentFileEvent } from "./models/agent-file-event";
 import { SessionManager, type SessionInfo } from "./core/session-manager";
+import { deployHookScript, stableHookPath } from "./hook/hook-deployment";
+import { secretLocationFromProcess } from "./transport/endpoint-secret";
 import { HookListener } from "./transport/hook-listener";
 import { registerHookCommands } from "./ui/hook-commands";
 import { registerUi } from "./ui/register-ui";
@@ -43,6 +46,7 @@ export interface AgentLensApi {
   history(): readonly AgentFileEvent[];
   activityFilter(): ActivityFilter;
   hookEndpoints(): readonly string[];
+  hookScriptPath(): string;
 }
 
 const UPDATE_CHECK_DELAY_MS = 10_000;
@@ -112,6 +116,21 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
       log(`Filesystem detector failed: ${describeError(error)}`);
     },
   });
+
+  const bundledHookPath = nodePath.join(context.extensionPath, "dist", "hook.js");
+  const hookScriptPath = stableHookPath(secretLocationFromProcess());
+  const deployHook = (): string => {
+    const status = deployHookScript(bundledHookPath, hookScriptPath);
+    if (status !== "unchanged") {
+      log(`Hook script ${status}: ${hookScriptPath}`);
+    }
+    return hookScriptPath;
+  };
+  try {
+    deployHook();
+  } catch (error) {
+    log(`Hook script could not be deployed: ${describeError(error)}`);
+  }
 
   const hookListener = new HookListener({
     onMessage: (message) => {
@@ -183,7 +202,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     watchTyping(typingTracker),
     filesystemDetector,
     hookListener,
-    ...registerHookCommands(context.extensionPath, { appendLine: log }),
+    ...registerHookCommands(deployHook, { appendLine: log }),
     ...registerUi({ activityStore, filterState, sessionManager, enabledState, pauseState }),
     vscode.commands.registerCommand("agentlens.enable", () => setEnabled(true)),
     vscode.commands.registerCommand("agentlens.disable", () => setEnabled(false)),
@@ -225,6 +244,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     history: () => activityStore.list(),
     activityFilter: () => filterState.filter,
     hookEndpoints: () => hookListener.endpoints(),
+    hookScriptPath: () => hookScriptPath,
   };
 }
 

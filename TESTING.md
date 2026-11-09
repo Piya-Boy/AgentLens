@@ -195,3 +195,15 @@ Record:
 - Actual: without `activationEvents` the extension was still inactive after 20 154 ms. With `onStartupFinished` it was active after 257 ms.
 - Result: FAIL before the fix, PASS after it
 - Limits of the check: one host, one run each. The integration suite cannot tell the two cases apart because it calls `activate()` itself; the manifest is guarded only by a unit test of its `activationEvents`. Not run on 1.90.0, Linux or macOS.
+
+### 2026-11-09 — Stable hook script copy
+
+- Environment: Windows 11, VS Code 1.145.2 and 1.90.0 (integration hosts), Claude Code 2.1.319 (`claude -p`, model haiku, `--permission-mode acceptEdits`) for the real session; unit suite also on Linux (WSL2, Node 24.22.1, copy of the repository under `/tmp`).
+- Steps:
+  1. Unit tests of `deployHookScript` and `stableHookPath` (create, identical copy left alone, replace in place with the same path when a new extension version brings a new script, restore an edited copy, missing source writes nothing, folder at the target refused; Unix only: mode 0600, symbolic link refused and not written through, world-writable copy refused).
+  2. Integration case: after activation the copy exists at `api.hookScriptPath()`, is outside the versioned extension folder, is byte-identical to `dist/hook.js`, and a real `PreToolUse`-shaped payload run through the copy opens the file.
+  3. Real session: the repository installer wrote `node "C:/Users/Acer/AppData/Local/agentlens/hook.js" --agentlens` into a scratch project, the project was opened in an Extension Development Host with AgentLens active, and a headless Claude Code session was asked to replace `notes.txt` with `two` using the Write tool.
+- Expected: the hook entry names a path that does not change when the extension updates; the copy always equals the bundled script; the hook run by Claude Code from that path reaches the extension.
+- Actual: Windows unit suite 471 passed, 13 skipped (484; the skipped ones are Unix-only). Linux unit suite 483 passed, 0 skipped (run before the manifest test was added). Integration 28 of 28 on 1.145.2 and on 1.90.0, shutdown check passed. Real session: AgentLens recorded one `claude-code` event (`edit`, `started`, tool `Write`) 8.5 s after the session started and `notes.txt` was visible in an editor 109 ms later; the file then contained `two` and the session replied `done`. The same host printed 24 `[AgentHost:stderr] ... ERR_STREAM_DESTROYED` lines that the earlier real-session run did not; they come from a VS Code process, were not traced, and the run still passed.
+- Result: PASS
+- Limits of the check: an extension update was not simulated end to end (a second installed version and a real VS Code update); the unit test only shows that a new script replaces the old one at the same path. Two editors with different extension versions were not tried. Running the integration suite writes `hook.js` into `%LOCALAPPDATA%agentlens` of the user who runs it, next to the endpoint secret. The Windows ACL on that folder was not inspected. macOS, Remote-WSL and the VSIX install path were not run for this change.
