@@ -48,6 +48,7 @@ npm run typecheck
 npm run lint
 npm test                   # unit tests (Vitest, no VS Code dependency)
 npm run test:integration   # runs inside an Extension Development Host; downloads VS Code into .vscode-test/
+                           # set VSCODE_TEST_VERSION=1.90.0 to run on the declared minimum
 ```
 
 Press F5 (`Run Extension`) to launch the Extension Development Host. Commands: `AgentLens: Enable`, `AgentLens: Disable`, `AgentLens: Pause Auto Focus`, `AgentLens: Resume Auto Focus`, `AgentLens: Send Mock Pre-edit Event for Active File` (development aid; the event is validated, deduplicated and recorded in the output channel and session list).

@@ -79,7 +79,7 @@ Statuses in this document represent plans, not confirmation that features are co
 - [x] Tab safety evaluation — pure `selectTabsToClose` (oldest-first, only AgentLens-opened tabs, skips pinned/dirty/active/protected/duplicated, may leave the limit exceeded) plus `TabController` (serialised passes, close and protected-key failures reported and nothing closed); policy in ADR-005
 - [x] Max tabs setting (default 5) — `agentlens.maxTabs` is read on every pass; a value below 1 acts as 1
 - [x] Never close pinned/dirty/active/agent-working tabs — unit-tested for each rule; integration-tested for active and pinned tabs and for leaving the user's own tab alone. A dirty tab was not driven in a real window (closing one opens a modal dialog), only unit-tested
-- [x] Test VS Code API constraints — findings recorded in ADR-005; `tabGroups.close` verified in the 1.145.2 host only, not on the declared minimum 1.90
+- [x] Test VS Code API constraints — findings recorded in ADR-005; `tabGroups.close` verified in the 1.145.2 host and on the declared minimum 1.90.0 (full integration suite 23/23 on both)
 
 **Exit criteria:** Focus and tab management cause no data loss and do not unnecessarily disrupt the user.
 

@@ -52,7 +52,7 @@ Records of key decisions made in AgentLens, so that AI and other contributors un
 - `preview: true` is ignored when the user disabled preview editors, so every opened file then becomes a permanent tab. That is when trimming matters.
 - The tab model can lag behind `showTextDocument`: the new tab may be missing from `tabGroups` for a moment after the call returns. AgentLens waits up to 1 s for the tab to appear before trimming and forgets an owned tab only after it has been seen and has then gone. One integration run failed intermittently before this was added (the old tab was not closed); the race is the suspected cause and was not reproduced on demand, but four later full runs all passed.
 
-**Consequences:** A file the user already had open is never registered as ours. A file the user later keeps (double-click) stays registered and can still be trimmed unless pinned or edited. Only the 1.145.2 host was exercised; the declared minimum (1.90) was not.
+**Consequences:** A file the user already had open is never registered as ours. A file the user later keeps (double-click) stays registered and can still be trimmed unless pinned or edited. The full integration suite (including the tab tests) passes on both the 1.145.2 host and the declared minimum, 1.90.0 (report in `TESTING.md`).
 
 ## ADR-006: Adapters Are Parsers, Transports Are Separate
 

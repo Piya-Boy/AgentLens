@@ -6,11 +6,13 @@ import { deactivationProblems } from "./verify-deactivation.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const fixtureWorkspace = path.join(root, "src", "test", "fixtures", "workspace");
-const userDataDir = path.join(root, ".vscode-test", "user-data-integration");
+const requestedVersion = process.env.VSCODE_TEST_VERSION;
+const userDataDir = path.join(root, ".vscode-test", `user-data-integration${requestedVersion === undefined ? "" : `-${requestedVersion}`}`);
 
 try {
   rmSync(path.join(userDataDir, "logs"), { recursive: true, force: true });
   await runTests({
+    ...(requestedVersion === undefined ? {} : { version: requestedVersion }),
     extensionDevelopmentPath: root,
     extensionTestsPath: path.join(root, "out", "test", "suite.js"),
     launchArgs: [fixtureWorkspace, "--disable-extensions", `--user-data-dir=${userDataDir}`],

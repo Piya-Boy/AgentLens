@@ -91,6 +91,15 @@ Record:
 - Actual: all expected events were recorded and nothing was opened. Result: PASS
 - Not covered: WSL; typing into an integrated terminal (`terminal.sendText` did not run the command in the test host, with or without a shell profile, so that approach was abandoned); macOS and Linux.
 
+### 2026-11-09 — Declared minimum VS Code version (1.90.0)
+
+- Environment: Windows 11, VS Code 1.90.0 downloaded by the test runner (`VSCODE_TEST_VERSION=1.90.0 npm run test:integration`; `resources/app/package.json` reports 1.90.0), Node.js 24.22.1 for the runner
+- Steps: the whole integration suite, unchanged, in the 1.90.0 Extension Development Host, followed by the shutdown check.
+- Expected: same results as on 1.145.2, including tab closing, typing deferral, filesystem fallback, PowerShell and the burst tests.
+- Actual: 23/23 passed. Burst (500 files): lag 18-23 ms, 977 and 968 events recorded; 150-file coverage run 150 of 150. Shutdown check passed. The host printed `Error mutex already exists` at start, a message from VS Code's own main process that did not affect the run; its cause was not investigated.
+- Result: PASS
+- Not covered: versions between 1.90.0 and 1.145.2; macOS and Linux.
+
 ### 2026-11-09 — Extension deactivation
 
 - Environment: Windows 11, VS Code 1.145.2 (integration host)
