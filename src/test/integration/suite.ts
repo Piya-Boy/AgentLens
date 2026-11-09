@@ -3,7 +3,11 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as vscode from "vscode";
+import { ActivityStore } from "../../core/activity-store";
+import { SessionManager } from "../../core/session-manager";
 import type { AgentLensApi, IngestOutcome } from "../../extension";
+import { ActivityTreeProvider } from "../../providers/activity-tree";
+import { SessionsTreeProvider } from "../../providers/sessions-tree";
 
 const EXTENSION_NAME = "agentlens";
 
@@ -181,6 +185,54 @@ const cases: readonly TestCase[] = [
       await vscode.commands.executeCommand("agentlens.clearHistory");
       assert.equal(api.history().length, 0);
       assert.equal(api.sessions().length, 0);
+    },
+  },
+  {
+    name: "registers the AgentLens activity bar view container",
+    run: async () => {
+      const commands = await vscode.commands.getCommands(true);
+      assert.ok(commands.includes("workbench.view.extension.agentlens"));
+      await vscode.commands.executeCommand("workbench.view.extension.agentlens");
+    },
+  },
+  {
+    name: "renders activity and session tree items distinguishing observed from pre-edit",
+    run: () => {
+      const store = new ActivityStore();
+      const sessions = new SessionManager();
+      const preEdit = {
+        eventId: "e1",
+        agentId: "claude-code",
+        sessionId: "s1",
+        action: "edit",
+        status: "started",
+        filePath: fixtureFile(),
+        timestamp: 1000,
+        source: "adapter",
+      } as const;
+      const observed = { ...preEdit, eventId: "e2", agentId: "unknown", sessionId: "filesystem", status: "observed", source: "filesystem" } as const;
+      for (const event of [preEdit, observed]) {
+        store.add(event);
+        sessions.record(event);
+      }
+
+      const activity = new ActivityTreeProvider(store, () => "time");
+      const sessionsView = new SessionsTreeProvider(sessions, () => "time");
+      try {
+        const labels = activity.getChildren().map((event) => {
+          const label = activity.getTreeItem(event).label;
+          return typeof label === "string" ? label : label?.label;
+        });
+        assert.deepEqual(labels, ["observed edit sample.txt", "started edit sample.txt"]);
+        assert.equal(sessionsView.getChildren().length, 2);
+        const firstSession = sessionsView.getChildren()[0];
+        assert.ok(firstSession);
+        assert.equal(sessionsView.getTreeItem(firstSession).description, "1 event · time");
+      } finally {
+        activity.dispose();
+        sessionsView.dispose();
+      }
+      return Promise.resolve();
     },
   },
   {

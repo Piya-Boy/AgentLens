@@ -11,6 +11,7 @@ import { EventManager, type IngestResult } from "./core/event-manager";
 import { createMockEvent } from "./core/mock-event";
 import type { AgentFileEvent } from "./models/agent-file-event";
 import { SessionManager, type SessionInfo } from "./core/session-manager";
+import { registerUi } from "./ui/register-ui";
 import { workspaceRoots } from "./workspace";
 
 export type IngestOutcome = IngestResult | { readonly accepted: false; readonly reason: "disabled" };
@@ -96,6 +97,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
   context.subscriptions.push(
     output,
     filesystemDetector,
+    ...registerUi({ activityStore, sessionManager, enabledState, pauseState }),
     vscode.commands.registerCommand("agentlens.enable", () => setEnabled(true)),
     vscode.commands.registerCommand("agentlens.disable", () => setEnabled(false)),
     vscode.commands.registerCommand("agentlens.pause", () => {
