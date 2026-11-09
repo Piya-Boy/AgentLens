@@ -28,6 +28,10 @@ import { SessionManager, type SessionInfo } from "./core/session-manager";
 import { HookListener } from "./transport/hook-listener";
 import { registerHookCommands } from "./ui/hook-commands";
 import { registerUi } from "./ui/register-ui";
+import { presentUpdate, registerUpdateCommand } from "./ui/update-commands";
+import { fetchJson } from "./update/github-fetch";
+import { LATEST_RELEASE_API } from "./update/release";
+import { UpdateChecker } from "./update/update-checker";
 import { workspaceRoots } from "./workspace";
 
 export type IngestOutcome = IngestResult | { readonly accepted: false; readonly reason: "disabled" };
@@ -40,6 +44,8 @@ export interface AgentLensApi {
   activityFilter(): ActivityFilter;
   hookEndpoints(): readonly string[];
 }
+
+const UPDATE_CHECK_DELAY_MS = 10_000;
 
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -144,8 +150,35 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     return ingest(createMockEvent(target, Date.now(), randomUUID()));
   };
 
+  const installedVersion = String((context.extension.packageJSON as { version?: unknown }).version);
+  const updateChecker = new UpdateChecker({
+    currentVersion: installedVersion,
+    fetchLatest: () => fetchJson(LATEST_RELEASE_API, `AgentLens/${installedVersion}`),
+    state: context.globalState,
+    now: Date.now,
+    reportError: (error) => {
+      log(`Update check could not save its state: ${describeError(error)}`);
+    },
+  });
+  const startupUpdateCheck = setTimeout(() => {
+    if (!readConfig().checkForUpdates) {
+      return;
+    }
+    updateChecker
+      .checkIfDue()
+      .then((outcome) => {
+        log(`Update check (automatic): ${outcome.kind === "failed" ? `failed, ${outcome.reason}` : outcome.kind}`);
+        presentUpdate(outcome, false);
+      })
+      .catch((error: unknown) => {
+        log(`Update check failed: ${describeError(error)}`);
+      });
+  }, UPDATE_CHECK_DELAY_MS);
+
   context.subscriptions.push(
     output,
+    { dispose: () => clearTimeout(startupUpdateCheck) },
+    registerUpdateCommand(updateChecker, log),
     focusController,
     watchTyping(typingTracker),
     filesystemDetector,

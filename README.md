@@ -51,7 +51,7 @@ npm run test:integration   # runs inside an Extension Development Host; download
                            # set VSCODE_TEST_VERSION=1.90.0 to run on the declared minimum
 ```
 
-Press F5 (`Run Extension`) to launch the Extension Development Host. Commands: `AgentLens: Enable`, `AgentLens: Disable`, `AgentLens: Pause Auto Focus`, `AgentLens: Resume Auto Focus`, `AgentLens: Send Mock Pre-edit Event for Active File` (development aid; the event is validated, deduplicated and recorded in the output channel and session list).
+Press F5 (`Run Extension`) to launch the Extension Development Host. Commands: `AgentLens: Enable`, `AgentLens: Disable`, `AgentLens: Pause Auto Focus`, `AgentLens: Resume Auto Focus`, `AgentLens: Check for Updates` (see [Updates](#updates)), `AgentLens: Send Mock Pre-edit Event for Active File` (development aid; the event is validated, deduplicated and recorded in the output channel and session list).
 
 The enabled/disabled state is stored in the workspace's `workspaceState`, so AgentLens never writes to `.vscode/settings.json`. `agentlens.focusMode` controls what a pre-edit event does: `auto` opens the file in a preview tab (default), `notify` shows a notification with an Open button, `off` does neither (activity is still recorded). In `auto` mode the open waits while you are typing in the active editor (an unsaved edit in the last 3 seconds) and is dropped if you keep typing for 10 seconds. `agentlens.maxTabs` (default 5) is a target: after AgentLens opens a file it closes the oldest tabs it opened itself until the target is met, never one that is pinned, unsaved, active, open twice or in use by an agent session, and never a tab you opened. If nothing is safe to close the target is exceeded.
 
@@ -64,11 +64,23 @@ AgentLens learns about edits before they happen through a Claude Code `PreToolUs
 3. Start Claude Code in that folder, including from an external terminal. Files it is about to edit open in a preview tab.
 
 - The hook is a small `node` script (`dist/hook.js`), so `node` must be on your PATH. It never blocks Claude Code, always exits 0 and prints nothing.
-- It sends only the file path, session id, tool name and working directory to this VS Code window over a local socket (a named pipe on Windows) whose name is derived from a random per-user secret kept in `%LOCALAPPDATA%\agentlens\endpoint-secret` (Windows, protected by the access rights of your user profile) or `~/.local/state/agentlens/endpoint-secret` (Unix, mode 0600 and owner checked); the hook sends nothing if that file does not exist. File contents are dropped before leaving the hook. Nothing uses the network.
+- It sends only the file path, session id, tool name and working directory to this VS Code window over a local socket (a named pipe on Windows) whose name is derived from a random per-user secret kept in `%LOCALAPPDATA%\agentlens\endpoint-secret` (Windows, protected by the access rights of your user profile) or `~/.local/state/agentlens/endpoint-secret` (Unix, mode 0600 and owner checked); the hook sends nothing if that file does not exist. File contents are dropped before leaving the hook. The hook does not use the network.
 - On Linux and macOS the socket folder comes from `XDG_RUNTIME_DIR`, or from the temp directory (`TMPDIR`) when that is unset. Claude Code and VS Code must see the same values, otherwise the hook cannot find the window and silently sends nothing.
 - After the extension is updated its folder changes; run the install command again to refresh the path.
 - `AgentLens: Uninstall Claude Code Hook` removes only the AgentLens entry.
 - Tested with the documented payload format, the real hook script, and a real Claude Code 2.1.319 session (see `TESTING.md`). A single run with a live VS Code window, the installed hook and a live session together has not been recorded.
+
+## Updates
+
+AgentLens does not update itself. VS Code updates installed extensions; a VSIX installed by hand needs a new VSIX.
+
+The one thing AgentLens can do is tell you that a newer release exists:
+
+- `AgentLens: Check for Updates` asks GitHub once, when you run it, and shows the result with a button that opens the release page.
+- `agentlens.checkForUpdates` (default `false`) does the same automatically, about 10 seconds after start-up and at most once a day, and tells you about each new version once.
+- Each check is one anonymous `GET` of the latest release of `Piya-Boy/AgentLens` on `api.github.com`. It sends no workspace data, only a user agent with the extension version; GitHub sees your IP address. Redirects are refused, the answer is limited to 64 KiB and only the version and the release page are read.
+- It never downloads or installs anything. Drafts and pre-releases are ignored.
+- The repository has no published release yet. GitHub answers HTTP 404 (checked on 2026-11-09), so running the command today shows "could not check for updates (the server answered HTTP 404)".
 
 ## Status
 

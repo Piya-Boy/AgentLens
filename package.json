@@ -122,6 +122,11 @@
         "command": "agentlens.sendMockEvent",
         "title": "Send Mock Pre-edit Event for Active File",
         "category": "AgentLens"
+      },
+      {
+        "command": "agentlens.checkForUpdates",
+        "title": "Check for Updates",
+        "category": "AgentLens"
       }
     ],
     "configuration": {
@@ -151,6 +156,11 @@
           },
           "default": [".git", "node_modules"],
           "description": "Folder names whose files are ignored by the filesystem fallback, at any depth."
+        },
+        "agentlens.checkForUpdates": {
+          "type": "boolean",
+          "default": false,
+          "description": "Once a day at most, ask GitHub for the latest AgentLens release and tell you when there is a newer one. It is a single anonymous request that sends no workspace data (GitHub sees your IP address). It never downloads or installs anything; VS Code updates extensions itself. Off by default. The command AgentLens: Check for Updates always works when you run it."
         },
         "agentlens.maxTabs": {
           "type": "integer",

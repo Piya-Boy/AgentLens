@@ -177,3 +177,12 @@ Record:
   - An earlier single run with the view opened right before sampling showed a 909 ms lag once; it did not repeat and was not explained.
 - Result: PASS
 - Limits of the check: the 500-file scenarios assert only that the event count is at least the file count. Events are counted per session, so duplicates could hide a missing file there, and the 500-event history cap evicts older events, so per-file coverage is proved only by the 150-file run. Not covered: CPU use of VS Code's file-watcher process, a real branch checkout, long-running memory, macOS and Linux.
+
+### 2026-11-09 — Update check
+
+- Environment: Windows 11, VS Code 1.145.2 (integration host), Node.js 22; unit suite on the same machine
+- Steps: `npm test` with the new `src/update/*.test.ts` files; `npm run test:integration` twice (second run only to count results); one `curl` of the real latest-release URL.
+- Expected: version text is parsed strictly; a release with a draft or pre-release flag, an odd tag, or a page outside the repository is rejected; the checker reports a newer release once per version, at most once a day, and keeps working when saving state fails; the fetch sends a GET with the user agent and the GitHub `Accept` header, refuses redirects, refuses a body over 64 KiB and fails on non-200; the command is registered and the setting defaults to `false`.
+- Actual: unit suite 461 passed, 10 skipped (471; 57 of them new). Integration 26 of 26 passed on both runs, and the host shut down cleanly. The real URL answered HTTP 404 on 2026-11-09 because the repository has no release.
+- Result: PASS
+- Limits of the check: the tests use a loopback server and fake releases, so no real release has been parsed. The 5 s timeout and the notification dialog were not exercised (nothing in the integration suite calls the network). The automatic start-up check was not run in a live host with the setting on. Linux and macOS were not run for this change.

@@ -21,7 +21,7 @@ When an AI Agent operates from Terminal, PowerShell, WSL, or tools outside VS Co
 
 - Not a tool for controlling or commanding AI Agents.
 - Does not read or analyze Source Code for quality assessment.
-- Does not send data to the Cloud.
+- Does not send workspace data to the Cloud. The only network request is the optional update notice (ADR-007), which sends no workspace data.
 - Does not guarantee pre-edit detection for every type of Agent.
 - Does not manage Git workflow on behalf of the user.
 

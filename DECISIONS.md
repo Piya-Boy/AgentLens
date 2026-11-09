@@ -63,3 +63,13 @@ Records of key decisions made in AgentLens, so that AI and other contributors un
 **Reason:** The initial proposal (`start`, `stop`, `onEvent`) had no second implementation to justify it, and the one real integration needs a transport that is shared plumbing (endpoint, size limits, timeouts), not adapter logic. A pure parser is easy to test with real payloads and cannot touch the file system or VS Code.
 
 **Consequences:** An agent whose events cannot be delivered as a payload to a parser would need a new transport design and a new ADR. Only one adapter exists, so the contract has not been tested against a second agent's shape.
+
+## ADR-007: Update Check Is Notify-Only and Opt-In
+
+**Status:** Accepted
+
+**Decision:** AgentLens does not download or install its own updates. It can compare the installed version with the latest GitHub release of `Piya-Boy/AgentLens` and tell the user, with a button that opens the release page. The command `AgentLens: Check for Updates` always works. The automatic check, `agentlens.checkForUpdates`, is off by default; when on it runs about 10 seconds after start-up, at most once a day (`globalState`), and reports each version once. The request is one anonymous `GET` to `api.github.com` with a user agent, no redirects, a 5 s timeout and a 64 KiB limit. Only `tag_name` and `html_url` are read: the tag must be a plain `major.minor.patch`, the page must be under `https://github.com/Piya-Boy/AgentLens/releases/`, and drafts and pre-releases are ignored.
+
+**Reason:** VS Code already updates extensions installed from the Marketplace, so a second installer would add risk without benefit. Fetching and installing code from a network response would turn an extension that today uploads nothing into one that runs downloaded code, and it would need signature checking this project cannot provide. A notice costs one small request and cannot change what runs. It is opt-in because the extension had no network call before, and `SECURITY.md` promised none.
+
+**Consequences:** A VSIX installed by hand still needs a new VSIX. The first network call in `src/` (`src/update/github-fetch.ts`) means the "no network" claim in the docs and the security checklist changed to name that one call. GitHub sees the user's IP address and the extension version in the user agent. Until a release is published the check answers HTTP 404. A Marketplace listing, once it exists, makes the notice mostly redundant, and the setting can then be removed.

@@ -6,6 +6,7 @@ export interface AgentLensConfig {
   readonly maxTabs: number;
   readonly focusCooldownMs: number;
   readonly ignoredFolders: readonly string[];
+  readonly checkForUpdates: boolean;
 }
 
 export const DEFAULT_IGNORED_FOLDERS: readonly string[] = [".git", "node_modules"];
@@ -19,5 +20,6 @@ export function readConfig(): AgentLensConfig {
     ignoredFolders: section
       .get<unknown[]>("ignoredFolders", [...DEFAULT_IGNORED_FOLDERS])
       .filter((entry): entry is string => typeof entry === "string"),
+    checkForUpdates: section.get<unknown>("checkForUpdates", false) === true,
   };
 }

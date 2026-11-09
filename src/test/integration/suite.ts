@@ -275,6 +275,7 @@ const cases: readonly TestCase[] = [
       assert.ok(commands.includes("agentlens.disable"));
       assert.ok(commands.includes("agentlens.installClaudeHook"));
       assert.ok(commands.includes("agentlens.uninstallClaudeHook"));
+      assert.ok(commands.includes("agentlens.checkForUpdates"));
     },
   },
   {
@@ -822,6 +823,7 @@ const cases: readonly TestCase[] = [
       const section = vscode.workspace.getConfiguration("agentlens");
       assert.equal(section.get("focusMode"), "auto");
       assert.equal(section.get("maxTabs"), 5);
+      assert.equal(section.get("checkForUpdates"), false);
       return Promise.resolve();
     },
   },
