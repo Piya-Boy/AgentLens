@@ -14,6 +14,7 @@ import { parseClaudePreToolUse } from "./adapters/claude/pre-tool-use";
 import type { AgentFileEvent } from "./models/agent-file-event";
 import { SessionManager, type SessionInfo } from "./core/session-manager";
 import { HookListener } from "./transport/hook-listener";
+import { registerHookCommands } from "./ui/hook-commands";
 import { registerUi } from "./ui/register-ui";
 import { workspaceRoots } from "./workspace";
 
@@ -120,6 +121,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     focusController,
     filesystemDetector,
     hookListener,
+    ...registerHookCommands(context.extensionPath, output),
     ...registerUi({ activityStore, filterState, sessionManager, enabledState, pauseState }),
     vscode.commands.registerCommand("agentlens.enable", () => setEnabled(true)),
     vscode.commands.registerCommand("agentlens.disable", () => setEnabled(false)),

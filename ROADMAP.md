@@ -50,6 +50,7 @@ Statuses in this document represent plans, not confirmation that features are co
 - [x] Receive pre-edit events — `dist/hook.js` run as a separate process with a PreToolUse-shaped payload reaches the extension and opens the file (integration test on Windows named pipes). Not yet run by a real Claude Code session; the Unix socket path is untested on this machine
 - [x] Map session and tool name — `session_id` to sessionId, `tool_use_id` to eventId, `tool_name` to toolName; Edit and Write map to edit, Read to read; other tools are unsupported
 - [x] Handle timeout, malformed payload, and duplicate events — hook gives up after 300 ms per endpoint and 2 s overall and always exits 0 with no output; malformed or oversized messages are dropped (16 KiB limit, 2 s connection timeout); duplicates are dropped by the Event Manager
+- [x] Install and uninstall the Claude Code hook — `AgentLens: Install Claude Code Hook` merges one `PreToolUse` entry (`Edit|Write`) into the first workspace folder's `.claude/settings.local.json` after a modal confirmation; invalid JSON or unexpected structure is never overwritten; uninstall removes only the AgentLens entry. The modal itself is not driven by tests (merge and file handling are unit-tested)
 - [ ] End-to-end testing
 
 **Exit criteria:** Test evidence confirms events arrive before edits and the file opens before the Agent acts.

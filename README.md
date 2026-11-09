@@ -53,6 +53,20 @@ Press F5 (`Run Extension`) to launch the Extension Development Host. Commands: `
 
 The enabled/disabled state is stored in the workspace's `workspaceState`, so AgentLens never writes to `.vscode/settings.json`. `agentlens.autoFocus` controls whether pre-edit events open files. `agentlens.maxTabs` is declared but not used until tab management lands.
 
+## Claude Code integration
+
+AgentLens learns about edits before they happen through a Claude Code `PreToolUse` hook (`Edit` and `Write`).
+
+1. Open your project folder in VS Code.
+2. Run `AgentLens: Install Claude Code Hook` and confirm. It merges one entry into `.claude/settings.local.json` of the first workspace folder and keeps everything else.
+3. Start Claude Code in that folder, including from an external terminal. Files it is about to edit open in a preview tab.
+
+- The hook is a small `node` script (`dist/hook.js`), so `node` must be on your PATH. It never blocks Claude Code, always exits 0 and prints nothing.
+- It sends only the file path, session id, tool name and working directory to this VS Code window over a local socket owned by your user. File contents are dropped before leaving the hook. Nothing uses the network.
+- After the extension is updated its folder changes; run the install command again to refresh the path.
+- `AgentLens: Uninstall Claude Code Hook` removes only the AgentLens entry.
+- Tested with the documented payload format and the real hook script. A full run with a live Claude Code session has not been recorded yet.
+
 ## Status
 
 The project is in the foundation and MVP development phase. Any details not yet confirmed should be treated as proposals, not completed capabilities.

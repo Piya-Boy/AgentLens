@@ -108,6 +108,16 @@
         "icon": "$(clear-all)"
       },
       {
+        "command": "agentlens.installClaudeHook",
+        "title": "Install Claude Code Hook",
+        "category": "AgentLens"
+      },
+      {
+        "command": "agentlens.uninstallClaudeHook",
+        "title": "Uninstall Claude Code Hook",
+        "category": "AgentLens"
+      },
+      {
         "command": "agentlens.sendMockEvent",
         "title": "Send Mock Pre-edit Event for Active File",
         "category": "AgentLens"

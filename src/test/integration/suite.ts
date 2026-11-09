@@ -70,6 +70,8 @@ const cases: readonly TestCase[] = [
       const commands = await vscode.commands.getCommands(true);
       assert.ok(commands.includes("agentlens.enable"));
       assert.ok(commands.includes("agentlens.disable"));
+      assert.ok(commands.includes("agentlens.installClaudeHook"));
+      assert.ok(commands.includes("agentlens.uninstallClaudeHook"));
     },
   },
   {
