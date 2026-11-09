@@ -270,3 +270,12 @@ Record:
 - Checks on the renamed tree before attempts 2 and 3: `npm run lint` clean, `npm run typecheck` clean, `npm test` 474 passed / 15 skipped, `npm run build` ok (bundle hashes identical before and after the integration run), `npm run test:integration` 28 passed / 0 failed with the shutdown check passed. The VSIX manifest was read back: `Id="agentlens-file-monitor" Publisher="piya-boy"`. The unit manifest test now pins `piya-boy.agentlens-file-monitor` and the display name.
 - Result: PASS for the form upload; the Marketplace verification outcome is recorded below if it was seen.
 - Limits of the check: the pre-check of candidate names failed (the gallery endpoint reset the connection on most queries), so availability was only learned by uploading. The Publisher Agreement and the Marketplace terms for publishing were not read here. The VSIX was not installed from the Marketplace, no listing page was opened, and the UNLICENSED manifest and the opt-in update check (owner decisions still open) are in the uploaded version. The earlier RELEASE.md paragraph about the publisher had been corrupted by a `$` + backtick pattern in a replace string and is repaired in this change.
+
+### 2026-11-09 — Marketplace verification result and listing page
+
+- Environment: Chrome signed in to the owner's Microsoft account; the page https://marketplace.visualstudio.com/manage/publishers/piya-boy polled after the third upload above.
+- Steps: reloaded the publisher page about every minute. It showed `Verifying 0.0.1` for about five minutes, then `0.0.1` with a green check, availability Public, 0 installs. Opened https://marketplace.visualstudio.com/items?itemName=piya-boy.agentlens-file-monitor and read its text.
+- Expected: the extension passes verification and has a public listing.
+- Actual: the listing renders the title `AgentLens File Monitor`, publisher Piya-Boy, Free, an Install button, the README, Version 0.0.1 released 11/9/2026 10:06:49 PM, unique identifier `piya-boy.agentlens-file-monitor`, a repository link to Piya-Boy/AgentLens and the category Other.
+- Result: PASS
+- Limits of the check: the extension was not installed from the Marketplace or searched for in VS Code, so the install path, the Marketplace icon rendering at small sizes and the update flow from the Marketplace are not tested. The README document links (AGENTS.md, PRD.md and others) point into the repository and were not followed; they are expected to be broken until PR #1 reaches `main`. The listing stays at 0.0.1 and cannot be replaced under that version.
