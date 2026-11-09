@@ -114,7 +114,23 @@ Record:
   - `src/hook/claude-hook-process.test.ts`: bundles `src/hook/claude-hook.ts` with esbuild into a temp folder, runs it as a child process with an isolated home, state and runtime folder, and checks that it delivers only tool, session and path to an `IpcServer` (named pipe on Windows, Unix socket on Linux), finds a parent folder's window, prints nothing, exits 0, and sends nothing when there is no secret or the listener uses a different secret. A Unix-only case leaves `XDG_RUNTIME_DIR` unset and points `TMPDIR` at the runtime folder, which proves the hook and the listener fall back to the same temp-directory socket folder. 6 tests (5 on Windows), pass.
   - `src/transport/ipc-server.test.ts`: a socket directory that group or others can access is refused, and so is one that is a symbolic link (Unix only). Mutation check: removing the mode check in the Linux copy made the first test fail; restoring it made the file pass again.
 - Result: PASS
-- Not covered: macOS; a hook and a VS Code window started with different `TMPDIR` or `XDG_RUNTIME_DIR` values (they would not find each other; the fallback only works when both sides see the same environment); the branches that need another user (socket directory or secret owned by someone else); integration tests on Linux (no VS Code was run there); a Remote-WSL window; Windows named-pipe access rights.
+- Not covered: macOS; a hook and a VS Code window started with different `TMPDIR` or `XDG_RUNTIME_DIR` values (they would not find each other; the fallback only works when both sides see the same environment); the branches that need another user (socket directory or secret owned by someone else); a Remote-WSL window; Windows named-pipe access rights. The integration suite on Linux is in the next report.
+
+### 2026-11-09 — Integration suite on Linux (WSL2, Xvfb)
+
+- Environment: same WSL2 distribution and `/tmp` setup as the report above (Node.js 24.22.1, copy of the working tree), `npm ci`, then `npm run test:integration` under `xvfb-run` so no window opens on the Windows desktop. The runner downloaded VS Code 1.145.2 for linux-x64 into the copy. Everything, including the temporary files VS Code and Node create, was removed afterwards.
+- Expected: the same behaviour as on Windows for the cases that apply on Linux.
+- Actual: 22 passed, 4 skipped (the cases that need Windows: PowerShell, WSL, and the two typed-terminal cases), 0 failed, shutdown check passed. Included: a real Claude Code `PreToolUse` payload through `dist/hook.js` over a Unix socket opening the file, the hook staying silent with no listener, the POSIX version of the integrated-terminal case (`/bin/sh -c`), the burst test (500 files written in about 20-30 ms on this filesystem, lag at most 8 ms, coverage run 150 of 150) and the filter, tab, typing and focus cases.
+- Result: PASS
+- Not covered: typed input into a POSIX terminal (the typed cases use PowerShell), VS Code versions other than 1.145.2 on Linux, macOS, a Remote-WSL window, a desktop session instead of Xvfb.
+
+### 2026-11-09 — Packaged extension (VSIX contents)
+
+- Environment: Windows 11, VS Code 1.145.2. `npx @vscode/vsce@4.1.0 package --no-dependencies` produced the VSIX; it was unpacked into a temporary folder and `AGENTLENS_EXTENSION_PATH=<that folder>/extension npm run test:integration` loaded the extension from there instead of from the repository (the host log shows the unpacked path).
+- Expected: the packaged file set (manifest, README, `dist/extension.js`, source map, `dist/hook.js`, `media/**`) is enough for every integration case, including the hook script cases.
+- Actual: 26/26 passed, shutdown check passed. vsce only warned that there is no LICENSE file.
+- Result: PASS
+- Not covered: installing the VSIX through the VS Code UI or `code --install-extension`, installing it on Linux, and the Marketplace install flow.
 
 ### 2026-11-09 — Declared minimum VS Code version (1.90.0)
 

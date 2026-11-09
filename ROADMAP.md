@@ -37,7 +37,7 @@ Statuses in this document represent plans, not confirmation that features are co
 - [x] Distinguish filesystem observations from agent events — source `filesystem`, status `observed`, agent `unknown`; the Focus Controller never acts on them
 - [x] Workspace boundary validation — enforced by the shared event validator for filesystem events too; real-path check before opening files added later
 - [x] Ignore patterns and debounce — folders from `agentlens.ignoredFolders` (default `.git`, `node_modules`) at any depth; 200 ms per-file debounce plus the 500 ms deduplication window
-- [x] Test files modified from Terminal/WSL — real Windows PowerShell (`Set-Content`, `Add-Content`, `Move-Item`, `Remove-Item`), a command run as the shell of a VS Code integrated terminal, a command typed into an interactive integrated terminal (both `terminal.sendText` and the `sendSequence` command) and a script run in WSL2 against the Windows-hosted workspace through `/mnt` are all observed as create/edit/delete and not opened (`test:integration` 26/26; reports in `TESTING.md`). Not covered: a Remote-WSL window (extension host running inside WSL), the POSIX variants of the terminal tests, macOS and Linux
+- [x] Test files modified from Terminal/WSL — real Windows PowerShell (`Set-Content`, `Add-Content`, `Move-Item`, `Remove-Item`), a command run as the shell of a VS Code integrated terminal, a command typed into an interactive integrated terminal (both `terminal.sendText` and the `sendSequence` command) and a script run in WSL2 against the Windows-hosted workspace through `/mnt` are all observed as create/edit/delete and not opened (`test:integration` 26/26; reports in `TESTING.md`). On Linux (WSL2 under Xvfb) the POSIX variant of the integrated-terminal test passed too (22 passed, 4 skipped as Windows-only). Not covered: a Remote-WSL window (extension host running inside WSL), typed input into a POSIX terminal (the typed tests use PowerShell), macOS
 
 **Exit criteria:** Changes made outside VS Code are detected without claiming them as pre-edit events.
 
@@ -83,7 +83,7 @@ Statuses in this document represent plans, not confirmation that features are co
 
 **Exit criteria:** Focus and tab management cause no data loss and do not unnecessarily disrupt the user.
 
-**Evidence:** `test:integration` in a real Extension Development Host includes typing deferral, notify/off, tab trimming and a pinned tab (final run of the whole branch: 23/23, unit tests 399 passed | 7 skipped). No data-loss path was found, but the criterion is judged on automated tests only: no manual session with a real agent and a real user typing, two VS Code versions (1.90.0 and 1.145.2), Windows only.
+**Evidence:** `test:integration` in a real Extension Development Host includes typing deferral, notify/off, tab trimming and a pinned tab (final run of the whole branch: 23/23, unit tests 399 passed | 7 skipped). No data-loss path was found, but the criterion is judged on automated tests only: no manual session with a real agent and a real user typing, two VS Code versions (1.90.0 and 1.145.2), Windows and Linux (WSL2) only.
 
 ## Phase 6 — More Integrations and Hardening
 

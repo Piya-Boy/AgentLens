@@ -33,6 +33,7 @@ npx @vscode/vsce ls
 
 - [ ] The file list contains only `package.json`, `README.md`, `LICENSE`, `dist/extension.js`, `dist/extension.js.map`, `dist/hook.js` and `media/**` (the icon files `icon.png` and `icon.svg` are expected there)
 - [ ] No source code from `src/`, no `.vscode-test`, no fixtures, no logs
+- [ ] Unpack the VSIX (it is a zip; rename it to `.zip`) and run `AGENTLENS_EXTENSION_PATH=<unpacked>/extension npm run test:integration`; every case must pass with the extension loaded from the package, not the repository (done once for 0.0.1 on 2026-11-09, see `TESTING.md`; repeat for each release)
 - [ ] Install the VSIX in a clean VS Code profile and run `AgentLens: Enable`, `Disable`, `Pause Auto Focus` and the Activity Bar view
 
 ## Publish

@@ -7,13 +7,16 @@ import { deactivationProblems } from "./verify-deactivation.mjs";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const fixtureWorkspace = path.join(root, "src", "test", "fixtures", "workspace");
 const requestedVersion = process.env.VSCODE_TEST_VERSION;
-const userDataDir = path.join(root, ".vscode-test", `user-data-integration${requestedVersion === undefined ? "" : `-${requestedVersion}`}`);
+const packagedPath = process.env.AGENTLENS_EXTENSION_PATH;
+const extensionPath = packagedPath === undefined ? root : path.resolve(packagedPath);
+const suffix = `${requestedVersion === undefined ? "" : `-${requestedVersion}`}${packagedPath === undefined ? "" : "-packaged"}`;
+const userDataDir = path.join(root, ".vscode-test", `user-data-integration${suffix}`);
 
 try {
   rmSync(path.join(userDataDir, "logs"), { recursive: true, force: true });
   await runTests({
     ...(requestedVersion === undefined ? {} : { version: requestedVersion }),
-    extensionDevelopmentPath: root,
+    extensionDevelopmentPath: extensionPath,
     extensionTestsPath: path.join(root, "out", "test", "suite.js"),
     launchArgs: [fixtureWorkspace, "--disable-extensions", `--user-data-dir=${userDataDir}`],
   });
@@ -22,7 +25,7 @@ try {
   process.exit(1);
 }
 
-const problems = deactivationProblems(userDataDir, path.join(root, "dist", "extension.js"));
+const problems = deactivationProblems(userDataDir, path.join(extensionPath, "dist", "extension.js"));
 if (problems.length > 0) {
   console.error(`Shutdown check failed:\n${problems.map((problem) => `- ${problem}`).join("\n")}`);
   process.exit(1);
