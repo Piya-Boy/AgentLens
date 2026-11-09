@@ -34,6 +34,10 @@ export function describeEvent(event: AgentFileEvent, formatTime: TimeFormatter):
   };
 }
 
+export function describeOffer(event: AgentFileEvent): string {
+  return `${event.agentId} is about to edit ${nodePath.basename(event.filePath)}.`;
+}
+
 export function describeSession(session: SessionInfo, formatTime: TimeFormatter): ItemDescription {
   const noun = session.eventCount === 1 ? "event" : "events";
   return {

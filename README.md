@@ -51,7 +51,7 @@ npm run test:integration   # runs inside an Extension Development Host; download
 
 Press F5 (`Run Extension`) to launch the Extension Development Host. Commands: `AgentLens: Enable`, `AgentLens: Disable`, `AgentLens: Pause Auto Focus`, `AgentLens: Resume Auto Focus`, `AgentLens: Send Mock Pre-edit Event for Active File` (development aid; the event is validated, deduplicated and recorded in the output channel and session list).
 
-The enabled/disabled state is stored in the workspace's `workspaceState`, so AgentLens never writes to `.vscode/settings.json`. `agentlens.autoFocus` controls whether pre-edit events open files. `agentlens.maxTabs` is declared but not used until tab management lands.
+The enabled/disabled state is stored in the workspace's `workspaceState`, so AgentLens never writes to `.vscode/settings.json`. `agentlens.focusMode` controls what a pre-edit event does: `auto` opens the file in a preview tab (default), `notify` shows a notification with an Open button, `off` does neither (activity is still recorded). `agentlens.maxTabs` is declared but not used until tab management lands.
 
 ## Claude Code integration
 

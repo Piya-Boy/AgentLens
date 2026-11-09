@@ -155,6 +155,33 @@ const cases: readonly TestCase[] = [
     },
   },
   {
+    name: "records events but does not open files when the focus mode is notify or off",
+    run: async (api) => {
+      const target = fixtureFile("third.txt");
+      const section = vscode.workspace.getConfiguration("agentlens");
+      const mockCount = (): number => api.sessions().find((candidate) => candidate.agentId === "mock")?.eventCount ?? 0;
+      await vscode.commands.executeCommand("workbench.action.closeAllEditors");
+      try {
+        for (const mode of ["notify", "off"]) {
+          await section.update("focusMode", mode, vscode.ConfigurationTarget.Global);
+          const before = mockCount();
+          const outcome = await sendMockEvent(target);
+          assert.equal(outcome?.accepted, true, `event rejected in ${mode} mode`);
+          assert.equal(mockCount(), before + 1);
+          await delay(600);
+          assert.equal(isFixtureVisible("third.txt"), false, `file opened in ${mode} mode`);
+        }
+      } finally {
+        await section.update("focusMode", undefined, vscode.ConfigurationTarget.Global);
+      }
+
+      await delay(600);
+      const outcome = await sendMockEvent(target);
+      assert.equal(outcome?.accepted, true);
+      await waitFor(() => isFixtureVisible("third.txt"));
+    },
+  },
+  {
     name: "observes file changes made outside the extension as filesystem events without opening them",
     run: async (api) => {
       const target = fixtureFile("external-change.txt");
@@ -352,7 +379,7 @@ const cases: readonly TestCase[] = [
     name: "exposes default configuration",
     run: () => {
       const section = vscode.workspace.getConfiguration("agentlens");
-      assert.equal(section.get("autoFocus"), true);
+      assert.equal(section.get("focusMode"), "auto");
       assert.equal(section.get("maxTabs"), 5);
       return Promise.resolve();
     },

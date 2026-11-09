@@ -1,7 +1,7 @@
 import nodePath from "node:path";
 import { describe, expect, it } from "vitest";
 import type { AgentFileEvent } from "../models/agent-file-event";
-import { describeEvent, describeSession, describeStatus } from "./activity-format";
+import { describeEvent, describeOffer, describeSession, describeStatus } from "./activity-format";
 import type { SessionInfo } from "./session-manager";
 
 const formatTime = (timestamp: number): string => `t${String(timestamp)}`;
@@ -42,6 +42,12 @@ describe("describeEvent", () => {
 
   it("omits the tool line when there is no tool", () => {
     expect(describeEvent(event(), formatTime).tooltip).not.toContain("Tool:");
+  });
+});
+
+describe("describeOffer", () => {
+  it("names the agent and only the file name", () => {
+    expect(describeOffer(event())).toBe("claude-code is about to edit a.ts.");
   });
 });
 

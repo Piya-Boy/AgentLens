@@ -1,6 +1,14 @@
 import type { AgentFileEvent } from "../models/agent-file-event";
 
-export type FocusSkipReason = "not-pre-edit" | "paused" | "auto-focus-disabled" | "queued" | "error";
+export type FocusMode = "auto" | "notify" | "off";
+
+export const DEFAULT_FOCUS_MODE: FocusMode = "auto";
+
+export function parseFocusMode(value: unknown): FocusMode {
+  return value === "auto" || value === "notify" || value === "off" ? value : DEFAULT_FOCUS_MODE;
+}
+
+export type FocusSkipReason = "not-pre-edit" | "paused" | "focus-off" | "queued" | "notified" | "error";
 
 export type FocusOutcome =
   | { readonly focused: true }
@@ -8,8 +16,9 @@ export type FocusOutcome =
 
 export interface FocusControllerOptions {
   readonly openFile: (filePath: string) => Promise<void>;
+  readonly notifyFile: (event: AgentFileEvent) => void;
   readonly isPaused: () => boolean;
-  readonly isAutoFocusEnabled: () => boolean;
+  readonly getMode: () => FocusMode;
   readonly getCooldownMs: () => number;
   readonly reportError: (error: unknown) => void;
 }
@@ -20,7 +29,7 @@ function isPreEditEvent(event: AgentFileEvent): boolean {
 
 export class FocusController {
   private timer: ReturnType<typeof setTimeout> | undefined;
-  private pendingFilePath: string | undefined;
+  private pendingEvent: AgentFileEvent | undefined;
 
   constructor(private readonly options: FocusControllerOptions) {}
 
@@ -31,14 +40,15 @@ export class FocusController {
     if (this.options.isPaused()) {
       return { focused: false, reason: "paused" };
     }
-    if (!this.options.isAutoFocusEnabled()) {
-      return { focused: false, reason: "auto-focus-disabled" };
+    const mode = this.options.getMode();
+    if (mode === "off") {
+      return { focused: false, reason: "focus-off" };
     }
     if (this.timer !== undefined) {
-      this.pendingFilePath = event.filePath;
+      this.pendingEvent = event;
       return { focused: false, reason: "queued" };
     }
-    return this.open(event.filePath);
+    return this.present(event, mode);
   }
 
   dispose(): void {
@@ -46,14 +56,19 @@ export class FocusController {
       clearTimeout(this.timer);
       this.timer = undefined;
     }
-    this.pendingFilePath = undefined;
+    this.pendingEvent = undefined;
   }
 
-  private async open(filePath: string): Promise<FocusOutcome> {
+  /** Auto mode opens the file; notify mode only offers it. Both share the cooldown and queue. */
+  private async present(event: AgentFileEvent, mode: Exclude<FocusMode, "off">): Promise<FocusOutcome> {
     this.startCooldown();
     try {
-      await this.options.openFile(filePath);
-      return { focused: true };
+      if (mode === "auto") {
+        await this.options.openFile(event.filePath);
+        return { focused: true };
+      }
+      this.options.notifyFile(event);
+      return { focused: false, reason: "notified" };
     } catch (error) {
       this.options.reportError(error);
       return { focused: false, reason: "error" };
@@ -61,8 +76,8 @@ export class FocusController {
   }
 
   /**
-   * After an open, further requests wait for the cooldown and only the latest one is
-   * opened when it ends, so a burst of edits cannot flip the editor between files.
+   * After a presentation, further requests wait for the cooldown and only the latest one is
+   * presented when it ends, so a burst of edits cannot flip the editor between files.
    */
   private startCooldown(): void {
     const cooldownMs = this.options.getCooldownMs();
@@ -71,10 +86,14 @@ export class FocusController {
     }
     this.timer = setTimeout(() => {
       this.timer = undefined;
-      const next = this.pendingFilePath;
-      this.pendingFilePath = undefined;
-      if (next !== undefined && !this.options.isPaused() && this.options.isAutoFocusEnabled()) {
-        void this.open(next);
+      const next = this.pendingEvent;
+      this.pendingEvent = undefined;
+      if (next === undefined || this.options.isPaused()) {
+        return;
+      }
+      const mode = this.options.getMode();
+      if (mode !== "off") {
+        void this.present(next, mode);
       }
     }, cooldownMs);
   }

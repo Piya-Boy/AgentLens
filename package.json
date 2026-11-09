@@ -126,10 +126,16 @@
     "configuration": {
       "title": "AgentLens",
       "properties": {
-        "agentlens.autoFocus": {
-          "type": "boolean",
-          "default": true,
-          "description": "Open the file an agent is about to edit when a reliable pre-edit event is received."
+        "agentlens.focusMode": {
+          "type": "string",
+          "enum": ["auto", "notify", "off"],
+          "enumDescriptions": [
+            "Open the file an agent is about to edit as soon as a reliable pre-edit event is received.",
+            "Show a notification with an Open button instead of opening the file.",
+            "Never open files or show notifications. Activity is still recorded."
+          ],
+          "default": "auto",
+          "description": "What AgentLens does when a reliable pre-edit event arrives for a file."
         },
         "agentlens.focusCooldownMs": {
           "type": "integer",

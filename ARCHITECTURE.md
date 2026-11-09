@@ -104,10 +104,10 @@ This contract is an initial proposal and must be adapted to fit the actual lifec
 ## 7. Focus Controller
 
 Receives only validated events:
-- Check Auto Focus and Pause state.
+- Check the focus mode (`auto`, `notify`, `off`) and Pause state.
 - Determine whether the event warrants a focus action.
 - Queue and debounce.
-- Open the document and show the editor.
+- Open the document and show the editor, or offer it in a notification in `notify` mode.
 - Handle errors such as file missing, permission denied, or unsupported URI.
 
 Filesystem fallback events must never be interpreted as pre-edit events.

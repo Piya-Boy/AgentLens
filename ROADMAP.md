@@ -23,8 +23,8 @@ Statuses in this document represent plans, not confirmation that features are co
 - [x] Session Manager — in-memory, keyed by agent and session id, capped at 50 sessions (least recently updated evicted); not wired into the extension or persisted yet
 - [x] Event deduplication — same event id per agent/session, or identical content within a 500 ms window; bounded to 1000 entries; wired into Event Manager. The 500 ms window is a proposed default, not validated against a real agent
 - [x] Mock event command for testing — `AgentLens: Send Mock Pre-edit Event for Active File`; Event Manager and Session Manager are wired into the extension; events are recorded but no file is opened until the Focus Controller lands
-- [x] Focus Controller — opens the file (preview tab, without taking input focus) only for adapter events with status `started` and action `edit`; honours `agentlens.autoFocus`; open errors are reported, not thrown. No queue/debounce yet (Phase 5)
-- [x] Auto Focus / Pause / Resume — auto focus on/off via the `agentlens.autoFocus` setting (no toggle command); `AgentLens: Pause Auto Focus` / `Resume Auto Focus` commands; pause is in-memory (resets on reload) and events are still recorded while paused
+- [x] Focus Controller — opens the file (preview tab, without taking input focus) only for adapter events with status `started` and action `edit`; honours `agentlens.focusMode`; open errors are reported, not thrown. No queue/debounce yet (Phase 5)
+- [x] Auto Focus / Pause / Resume — auto focus on/off via the `agentlens.focusMode` setting (`auto`/`notify`/`off`, no toggle command); `AgentLens: Pause Auto Focus` / `Resume Auto Focus` commands; pause is in-memory (resets on reload) and events are still recorded while paused
 
 **Exit criteria:** Sending a mock pre-edit event successfully opens the correct file safely.
 
@@ -72,9 +72,9 @@ Statuses in this document represent plans, not confirmation that features are co
 
 ## Phase 5 — Smart Focus and Tab Management
 
-- [x] Focus queue and arbitration — latest-wins queue: while a cooldown is running only the most recent requested file is kept and opened afterwards; paused or disabled auto focus drops it
+- [x] Focus queue and arbitration — latest-wins queue: while a cooldown is running only the most recent requested file is kept and opened afterwards; pausing or setting the mode to `off` drops it
 - [x] Debounce / cooldown — `agentlens.focusCooldownMs` (default 1000 ms, 0 disables) between automatic opens; unit-tested with fake timers, not measured against a real agent
-- [ ] Manual mode
+- [x] Manual mode — `agentlens.focusMode: "notify"` shows a notification (`<agent> is about to edit <file>.`) with an Open button instead of opening the file; Open uses a preview tab and takes input focus because the user asked for it. Shares the cooldown and latest-wins queue. Replaces the boolean `agentlens.autoFocus` (never released, no migration). Unit-tested (291) and integration-tested that notify/off record the event without opening; the notification itself and the Open click were not driven in a real window
 - [ ] Prevent stealing the active editor
 - [ ] Tab safety evaluation
 - [ ] Max tabs setting (default 5)

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import * as vscode from "vscode";
 import { readConfig } from "./config";
 import { FocusController } from "./controllers/focus-controller";
+import { offerFileForObservation } from "./controllers/vscode-file-notifier";
 import { openFileForObservation } from "./controllers/vscode-file-opener";
 import { ActivityFilterState, type ActivityFilter } from "./core/activity-filter";
 import { ActivityStore } from "./core/activity-store";
@@ -47,14 +48,18 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     },
   });
 
+  const reportFocusError = (error: unknown): void => {
+    output.appendLine(`Focus failed: ${describeError(error)}`);
+  };
   const focusController = new FocusController({
-    openFile: openFileForObservation,
-    isPaused: () => pauseState.isPaused,
-    isAutoFocusEnabled: () => readConfig().autoFocus,
-    getCooldownMs: () => readConfig().focusCooldownMs,
-    reportError: (error) => {
-      output.appendLine(`Focus failed: ${describeError(error)}`);
+    openFile: (filePath) => openFileForObservation(filePath),
+    notifyFile: (event) => {
+      offerFileForObservation(event, reportFocusError);
     },
+    isPaused: () => pauseState.isPaused,
+    getMode: () => readConfig().focusMode,
+    getCooldownMs: () => readConfig().focusCooldownMs,
+    reportError: reportFocusError,
   });
 
   const ingest = (input: unknown): IngestOutcome => {
@@ -153,7 +158,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
 
   const config = readConfig();
   output.appendLine(
-    `Activated (${enabledState.isEnabled ? "enabled" : "disabled"}, autoFocus=${String(config.autoFocus)}, maxTabs=${String(config.maxTabs)})`,
+    `Activated (${enabledState.isEnabled ? "enabled" : "disabled"}, focusMode=${config.focusMode}, maxTabs=${String(config.maxTabs)})`,
   );
 
   return {
