@@ -1,8 +1,20 @@
 import * as assert from "node:assert/strict";
+import * as os from "node:os";
+import * as path from "node:path";
 import * as vscode from "vscode";
-import type { AgentLensApi } from "../../extension";
+import type { AgentLensApi, IngestOutcome } from "../../extension";
 
 const EXTENSION_NAME = "agentlens";
+
+function fixtureFile(): string {
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  assert.ok(folder, "fixture workspace is not open");
+  return path.join(folder.uri.fsPath, "sample.txt");
+}
+
+async function sendMockEvent(filePath: string): Promise<IngestOutcome | undefined> {
+  return vscode.commands.executeCommand<IngestOutcome | undefined>("agentlens.sendMockEvent", filePath);
+}
 
 interface TestCase {
   readonly name: string;
@@ -31,6 +43,43 @@ const cases: readonly TestCase[] = [
       await vscode.commands.executeCommand("agentlens.disable");
       assert.equal(api.isEnabled(), false);
       await vscode.commands.executeCommand("agentlens.enable");
+      assert.equal(api.isEnabled(), true);
+    },
+  },
+  {
+    name: "records a session for a mock event inside the workspace",
+    run: async (api) => {
+      const before = api.sessions().length;
+      const result = await sendMockEvent(fixtureFile());
+      assert.equal(result?.accepted, true);
+      const sessions = api.sessions();
+      assert.equal(sessions.length, before + 1);
+      const session = sessions.find((candidate) => candidate.agentId === "mock");
+      assert.ok(session);
+      assert.equal(session.eventCount, 1);
+      assert.equal(session.lastFilePath, path.normalize(fixtureFile()));
+    },
+  },
+  {
+    name: "rejects a mock event outside the workspace",
+    run: async (api) => {
+      const before = api.sessions().length;
+      const result = await sendMockEvent(path.join(os.tmpdir(), "agentlens-outside.txt"));
+      assert.equal(result?.accepted, false);
+      assert.equal(result.reason, "invalid");
+      assert.equal(api.sessions().length, before);
+    },
+  },
+  {
+    name: "ignores mock events while disabled",
+    run: async (api) => {
+      await vscode.commands.executeCommand("agentlens.disable");
+      try {
+        const result = await sendMockEvent(fixtureFile());
+        assert.deepEqual(result, { accepted: false, reason: "disabled" });
+      } finally {
+        await vscode.commands.executeCommand("agentlens.enable");
+      }
       assert.equal(api.isEnabled(), true);
     },
   },
