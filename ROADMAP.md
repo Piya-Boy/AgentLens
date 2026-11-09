@@ -88,7 +88,7 @@ Statuses in this document represent plans, not confirmation that features are co
 - [x] Multi-agent / multi-session tests — unit-level pipeline tests with interleaved Claude Code sessions, a second agent, filesystem observations, duplicates, rejections and a failing listener; no real second agent has been run
 - [ ] Performance and resource usage review — core pipeline measured: 50,000 events in about 200 ms (about 250,000 events/s), heap delta under 1 MB, history capped at 500. Not measured: VS Code watcher and `stat` cost during a large burst (for example a branch checkout), and tree refresh cost under a burst
 - [ ] Security review — self-review against the SECURITY.md checklist done (8 of 9 items ticked there); an independent review and the adapter transport review are still pending
-- [ ] Packaging and release checklist
+- [x] Packaging and release checklist — `RELEASE.md`; a local VSIX builds (7 files). Publishing is blocked on the owner providing a publisher, a LICENSE and a Marketplace icon
 
 ## Definition of Done
 

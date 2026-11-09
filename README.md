@@ -34,6 +34,7 @@ AgentLens tracks the activity of AI Coding Agents that modify files within your 
 - [SECURITY.md](SECURITY.md) — Security and Privacy
 - [TESTING.md](TESTING.md) — Testing Guidelines
 - [DECISIONS.md](DECISIONS.md) — Architecture Decision Records
+- [RELEASE.md](RELEASE.md) — Packaging and release checklist
 
 ## Development
 

@@ -5,6 +5,10 @@
   "version": "0.0.1",
   "private": true,
   "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Piya-Boy/AgentLens.git"
+  },
   "engines": {
     "vscode": "^1.90.0",
     "node": ">=22.12.0"
