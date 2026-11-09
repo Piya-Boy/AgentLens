@@ -51,9 +51,11 @@ Statuses in this document represent plans, not confirmation that features are co
 - [x] Map session and tool name — `session_id` to sessionId, `tool_use_id` to eventId, `tool_name` to toolName; Edit and Write map to edit, Read to read; other tools are unsupported
 - [x] Handle timeout, malformed payload, and duplicate events — hook gives up after 300 ms per endpoint and 2 s overall and always exits 0 with no output; malformed or oversized messages are dropped (16 KiB limit, 2 s connection timeout); duplicates are dropped by the Event Manager
 - [x] Install and uninstall the Claude Code hook — `AgentLens: Install Claude Code Hook` merges one `PreToolUse` entry (`Edit|Write`) into the first workspace folder's `.claude/settings.local.json` after a modal confirmation; invalid JSON or unexpected structure is never overwritten; uninstall removes only the AgentLens entry. The modal itself is not driven by tests (merge and file handling are unit-tested)
-- [ ] End-to-end testing
+- [x] End-to-end testing — real Claude Code 2.1.319 sessions (Write and Edit) fired the hook before the file changed; the captured payload went through `dist/hook.js`, the IPC server, the parser and the Event Manager and produced the expected event (report in `TESTING.md`). Not run as a single session against a live VS Code window with the extension installed
 
 **Exit criteria:** Test evidence confirms events arrive before edits and the file opens before the Agent acts.
+
+**Evidence:** hook fired 63 ms before the file was created in a real Claude Code run (`TESTING.md`). The file opening in VS Code was verified separately by the integration test with a hook-shaped payload; the two have not been combined in one live run, so "opens before the agent acts" is supported but not measured end to end.
 
 ## Phase 4 — Activity UI
 
