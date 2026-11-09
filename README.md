@@ -35,6 +35,23 @@ AgentLens tracks the activity of AI Coding Agents that modify files within your 
 - [TESTING.md](TESTING.md) — Testing Guidelines
 - [DECISIONS.md](DECISIONS.md) — Architecture Decision Records
 
+## Development
+
+Requires Node.js >= 22.12 and VS Code >= 1.90.
+
+```text
+npm install
+npm run build              # bundle src/extension.ts to dist/extension.js
+npm run typecheck
+npm run lint
+npm test                   # unit tests (Vitest, no VS Code dependency)
+npm run test:integration   # runs inside an Extension Development Host; downloads VS Code into .vscode-test/
+```
+
+Press F5 (`Run Extension`) to launch the Extension Development Host. Commands: `AgentLens: Enable`, `AgentLens: Disable`.
+
+The enabled/disabled state is stored in the workspace's `workspaceState`, so AgentLens never writes to `.vscode/settings.json`. Settings `agentlens.autoFocus` and `agentlens.maxTabs` are declared but not used until the focus and tab features land.
+
 ## Status
 
 The project is in the foundation and MVP development phase. Any details not yet confirmed should be treated as proposals, not completed capabilities.

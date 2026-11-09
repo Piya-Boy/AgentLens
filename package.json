@@ -1,0 +1,66 @@
+{
+  "name": "agentlens",
+  "displayName": "AgentLens",
+  "description": "Universal AI Agent File Monitor for VS Code",
+  "version": "0.0.1",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.90.0",
+    "node": ">=22.12.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "agentlens.enable",
+        "title": "Enable",
+        "category": "AgentLens"
+      },
+      {
+        "command": "agentlens.disable",
+        "title": "Disable",
+        "category": "AgentLens"
+      }
+    ],
+    "configuration": {
+      "title": "AgentLens",
+      "properties": {
+        "agentlens.autoFocus": {
+          "type": "boolean",
+          "default": true,
+          "description": "Open the file an agent is about to edit when a reliable pre-edit event is received."
+        },
+        "agentlens.maxTabs": {
+          "type": "integer",
+          "default": 5,
+          "minimum": 1,
+          "description": "Target number of open tabs. Tabs that are pinned, dirty or active are never closed, so this limit may be exceeded."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "build:test": "node esbuild.mjs --test",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:integration": "npm run build:test && node scripts/run-integration.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.20.5",
+    "@types/vscode": "~1.90.0",
+    "@vscode/test-electron": "^3.1.0",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.1",
+    "vitest": "^5.1.0"
+  }
+}

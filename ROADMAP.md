@@ -4,14 +4,16 @@ Statuses in this document represent plans, not confirmation that features are co
 
 ## Phase 0 — Project Foundation
 
-- [ ] Create VS Code Extension scaffold
-- [ ] Configure TypeScript, esbuild, ESLint, and test runner
-- [ ] Add enable/disable AgentLens command
-- [ ] Add basic configuration
-- [ ] Verify activation and deactivation
-- [ ] Add README and development instructions
+- [x] Create VS Code Extension scaffold
+- [x] Configure TypeScript, esbuild, ESLint, and test runner
+- [x] Add enable/disable AgentLens command
+- [x] Add basic configuration
+- [ ] Verify activation and deactivation — activation verified by integration test; deactivation only indirectly (host exits with code 0), no dedicated test yet
+- [x] Add README and development instructions
 
 **Exit criteria:** Extension loads in Extension Development Host without errors and build passes.
+
+**Evidence:** `npm run lint`, `typecheck`, `test` (5/5), `build` and `test:integration` (4/4, in a real Extension Development Host) pass. F5 was not pressed manually.
 
 ## Phase 1 — Core Event System
 
