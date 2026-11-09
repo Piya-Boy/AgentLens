@@ -47,6 +47,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     openFile: openFileForObservation,
     isPaused: () => pauseState.isPaused,
     isAutoFocusEnabled: () => readConfig().autoFocus,
+    getCooldownMs: () => readConfig().focusCooldownMs,
     reportError: (error) => {
       output.appendLine(`Focus failed: ${describeError(error)}`);
     },
@@ -99,6 +100,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
 
   context.subscriptions.push(
     output,
+    focusController,
     filesystemDetector,
     ...registerUi({ activityStore, filterState, sessionManager, enabledState, pauseState }),
     vscode.commands.registerCommand("agentlens.enable", () => setEnabled(true)),

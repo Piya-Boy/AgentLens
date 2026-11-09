@@ -69,8 +69,8 @@ Statuses in this document represent plans, not confirmation that features are co
 
 ## Phase 5 — Smart Focus and Tab Management
 
-- [ ] Focus queue and arbitration
-- [ ] Debounce / cooldown
+- [x] Focus queue and arbitration — latest-wins queue: while a cooldown is running only the most recent requested file is kept and opened afterwards; paused or disabled auto focus drops it
+- [x] Debounce / cooldown — `agentlens.focusCooldownMs` (default 1000 ms, 0 disables) between automatic opens; unit-tested with fake timers, not measured against a real agent
 - [ ] Manual mode
 - [ ] Prevent stealing the active editor
 - [ ] Tab safety evaluation

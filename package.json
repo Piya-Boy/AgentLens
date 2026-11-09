@@ -117,6 +117,12 @@
           "default": true,
           "description": "Open the file an agent is about to edit when a reliable pre-edit event is received."
         },
+        "agentlens.focusCooldownMs": {
+          "type": "integer",
+          "default": 1000,
+          "minimum": 0,
+          "description": "Minimum time between automatic file opens. Requests during the cooldown are collapsed and only the latest file is opened afterwards. 0 disables the cooldown."
+        },
         "agentlens.ignoredFolders": {
           "type": "array",
           "items": {
