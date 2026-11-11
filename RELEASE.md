@@ -1,6 +1,6 @@
 # Release Checklist — AgentLens
 
-Status: 0.0.1 was uploaded to the Visual Studio Marketplace on 2026-11-09 with the owner's approval and passed verification (see the extension name item below); there is no Git tag and no GitHub release yet. Version 0.0.2 (the start-up offer for the Claude Code hook, ADR-009; commit `465f981`) is built and tested but not uploaded: the VSIX is `agentlens-file-monitor-0.0.2.vsix` with sha256 `ead6f8aa7afc7e09f4ee34553823b026fb2994402b238d411b62be44e3c62ce6`, packaged with `npx @vscode/vsce@4.1.0 package --no-dependencies`, and the integration suite passed 29 of 29 against its unpacked contents. The Marketplace page for the owner's account (Manage, row menu, Update) takes it as an update to 0.0.1. Items marked **Owner** need a decision from the project owner.
+Status: 0.0.1 was uploaded to the Visual Studio Marketplace on 2026-11-09 with the owner's approval and passed verification (see the extension name item below); there is no Git tag and no GitHub release yet. Version 0.0.2 (the start-up offer for the Claude Code hook, ADR-009; commit `465f981`) was uploaded on 2026-11-11 with the owner's approval ("up" in chat) and passed verification: the VSIX is `agentlens-file-monitor-0.0.2.vsix` with sha256 `ead6f8aa7afc7e09f4ee34553823b026fb2994402b238d411b62be44e3c62ce6`, packaged with `npx @vscode/vsce@4.1.0 package --no-dependencies`, and the integration suite passed 29 of 29 against its unpacked contents. The public listing shows Version 0.0.2 (see `TESTING.md`). It went up through the Marketplace page for the owner's account (Manage, row menu, Update) as an update to 0.0.1. Items marked **Owner** need a decision from the project owner.
 
 ## Blockers found by a packaging dry run
 
@@ -39,6 +39,6 @@ npx @vscode/vsce ls
 
 ## Publish
 
-- [x] **Owner** approves publishing and the target — done for 0.0.1 on the Marketplace ("Upload 0.0.1 now, as it is", 2026-11-09, with the UNLICENSED manifest and the opt-in update check included); Open VSX was not touched
+- [x] **Owner** approves publishing and the target — done for 0.0.1 on the Marketplace ("Upload 0.0.1 now, as it is", 2026-11-09, with the UNLICENSED manifest and the opt-in update check included) and for 0.0.2 ("up", 2026-11-11); Open VSX was not touched
 - [ ] Tag the release commit
 - [ ] Record known limitations in the release notes (see the `ROADMAP.md` notes on unverified items)
