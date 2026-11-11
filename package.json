@@ -3,7 +3,7 @@
   "displayName": "AgentLens File Monitor",
   "publisher": "piya-boy",
   "description": "Universal AI Agent File Monitor for VS Code",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "license": "UNLICENSED",
   "icon": "media/icon.png",
