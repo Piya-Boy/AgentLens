@@ -887,11 +887,9 @@ const cases: readonly TestCase[] = [
       const claudeFolder = path.join(folder, ".claude");
       const settingsFile = path.join(claudeFolder, "settings.local.json");
       const marker = path.join(folder, "CLAUDE.md");
-      const window = vscode.window as { showInformationMessage: unknown };
-      const original = window.showInformationMessage;
       const questions: string[] = [];
       let answer: string | undefined;
-      window.showInformationMessage = (message: string): Promise<string | undefined> => {
+      const ask = (message: string): Promise<string | undefined> => {
         questions.push(message);
         return Promise.resolve(answer);
       };
@@ -899,13 +897,13 @@ const cases: readonly TestCase[] = [
         await fs.writeFile(marker, "# project notes\n", "utf8");
 
         answer = undefined;
-        assert.equal(await api.offerClaudeHook(true), "declined");
+        assert.equal(await api.offerClaudeHook({ repeat: true, ask }), "declined");
         assert.equal(questions.length, 1);
         assert.match(questions[0] ?? "", /\.claude\/settings\.local\.json/);
         await assert.rejects(fs.stat(settingsFile), "closing the question must not write the settings file");
 
         answer = "Install";
-        assert.equal(await api.offerClaudeHook(true), "installed");
+        assert.equal(await api.offerClaudeHook({ repeat: true, ask }), "installed");
         const settings = JSON.parse(await fs.readFile(settingsFile, "utf8")) as {
           hooks?: { PreToolUse?: { matcher?: string; hooks?: { command?: string }[] }[] };
         };
@@ -917,10 +915,9 @@ const cases: readonly TestCase[] = [
         );
 
         const asked = questions.length;
-        assert.equal(await api.offerClaudeHook(true), "already-installed");
+        assert.equal(await api.offerClaudeHook({ repeat: true, ask }), "already-installed");
         assert.equal(questions.length, asked, "an installed hook must not be offered again");
       } finally {
-        window.showInformationMessage = original;
         await fs.rm(claudeFolder, { recursive: true, force: true });
         await fs.rm(marker, { force: true });
       }

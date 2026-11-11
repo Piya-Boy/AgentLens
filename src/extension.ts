@@ -26,7 +26,7 @@ import { safeLogText } from "./core/log-text";
 import { createMockEvent } from "./core/mock-event";
 import { runAdapter } from "./adapters/adapter";
 import { inspectHook } from "./adapters/claude/hook-installer";
-import { runHookOffer, type HookOfferOutcome } from "./adapters/claude/hook-offer";
+import { runHookOffer, type HookOfferDeps, type HookOfferOutcome } from "./adapters/claude/hook-offer";
 import { claudeCodeAdapter } from "./adapters/claude/pre-tool-use";
 import type { AgentFileEvent } from "./models/agent-file-event";
 import { SessionManager, type SessionInfo } from "./core/session-manager";
@@ -51,8 +51,11 @@ export interface AgentLensApi {
   activityFilter(): ActivityFilter;
   hookEndpoints(): readonly string[];
   hookScriptPath(): string;
-  /** Runs the Claude Code hook offer now. `repeat` asks again in a workspace that was already asked. */
-  offerClaudeHook(repeat?: boolean): Promise<HookOfferOutcome>;
+  /**
+   * Runs the Claude Code hook offer now. `repeat` asks again in a workspace that was already asked; `ask` replaces the
+   * notification (tests use it, because they cannot reach the extension's own `vscode.window`).
+   */
+  offerClaudeHook(options?: { readonly repeat?: boolean; readonly ask?: HookOfferDeps["ask"] }): Promise<HookOfferOutcome>;
 }
 
 const UPDATE_CHECK_DELAY_MS = 10_000;
@@ -189,7 +192,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     return ingest(createMockEvent(target, Date.now(), randomUUID()));
   };
 
-  const offerClaudeHook = (repeat = false): Promise<HookOfferOutcome> =>
+  const offerClaudeHook = (options: { readonly repeat?: boolean; readonly ask?: HookOfferDeps["ask"] } = {}): Promise<HookOfferOutcome> =>
     runHookOffer(
       {
         isEnabled: () => enabledState.isEnabled,
@@ -204,14 +207,16 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
           markOfferedHere: () => Promise.resolve(context.workspaceState.update(HOOK_OFFER_SHOWN_KEY, true)),
           optOut: () => Promise.resolve(context.globalState.update(HOOK_OFFER_OPT_OUT_KEY, true)),
         },
-        ask: (message, install, never) => Promise.resolve(vscode.window.showInformationMessage(message, install, never)),
+        ask:
+          options.ask ??
+          ((message, install, never) => Promise.resolve(vscode.window.showInformationMessage(message, install, never))),
         install: async () => {
           const result = await installHookInWorkspace(deployHook, { appendLine: log }, false);
           return result === "installed" || result === "unchanged";
         },
         log,
       },
-      { repeat },
+      { repeat: options.repeat === true },
     );
 
   const installedVersion = String((context.extension.packageJSON as { version?: unknown }).version);
@@ -282,13 +287,18 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     `Activated (${enabledState.isEnabled ? "enabled" : "disabled"}, focusMode=${config.focusMode}, maxTabs=${String(config.maxTabs)})`,
   );
 
-  offerClaudeHook()
-    .then((outcome) => {
-      log(`Claude Code hook offer: ${outcome}`);
-    })
-    .catch((error: unknown) => {
-      log(`Claude Code hook offer failed: ${describeError(error)}`);
-    });
+  if (context.extensionMode === vscode.ExtensionMode.Test) {
+    // A real notification in an extension test host can be answered by the host itself, and would race the offer the suite runs.
+    log("Claude Code hook offer: not run at start-up in extension tests");
+  } else {
+    offerClaudeHook()
+      .then((outcome) => {
+        log(`Claude Code hook offer: ${outcome}`);
+      })
+      .catch((error: unknown) => {
+        log(`Claude Code hook offer failed: ${describeError(error)}`);
+      });
+  }
 
   return {
     isEnabled: () => enabledState.isEnabled,
