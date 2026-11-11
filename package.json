@@ -1,0 +1,199 @@
+{
+  "name": "agentlens-file-monitor",
+  "displayName": "AgentLens File Monitor",
+  "publisher": "piya-boy",
+  "description": "Universal AI Agent File Monitor for VS Code",
+  "version": "0.0.2",
+  "private": true,
+  "license": "UNLICENSED",
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Piya-Boy/AgentLens.git"
+  },
+  "engines": {
+    "vscode": "^1.90.0",
+    "node": ">=22.12.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "agentlens",
+          "title": "AgentLens",
+          "icon": "media/agentlens.svg"
+        }
+      ]
+    },
+    "views": {
+      "agentlens": [
+        {
+          "id": "agentlens.sessions",
+          "name": "Sessions"
+        },
+        {
+          "id": "agentlens.activity",
+          "name": "Recent Activity"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "agentlens.filterActivity",
+          "when": "view == agentlens.activity",
+          "group": "navigation"
+        },
+        {
+          "command": "agentlens.clearActivityFilter",
+          "when": "view == agentlens.activity && agentlens.filterActive",
+          "group": "navigation"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "agentlens.sessions",
+        "contents": "No agent sessions yet."
+      },
+      {
+        "view": "agentlens.activity",
+        "contents": "No agent activity yet. Pre-edit events and file changes made in the workspace appear here.",
+        "when": "!agentlens.filterActive"
+      },
+      {
+        "view": "agentlens.activity",
+        "contents": "No activity matches the current filter.",
+        "when": "agentlens.filterActive"
+      }
+    ],
+    "commands": [
+      {
+        "command": "agentlens.enable",
+        "title": "Enable",
+        "category": "AgentLens"
+      },
+      {
+        "command": "agentlens.disable",
+        "title": "Disable",
+        "category": "AgentLens"
+      },
+      {
+        "command": "agentlens.pause",
+        "title": "Pause Auto Focus",
+        "category": "AgentLens"
+      },
+      {
+        "command": "agentlens.resume",
+        "title": "Resume Auto Focus",
+        "category": "AgentLens"
+      },
+      {
+        "command": "agentlens.clearHistory",
+        "title": "Clear Activity History",
+        "category": "AgentLens"
+      },
+      {
+        "command": "agentlens.filterActivity",
+        "title": "Filter Activity...",
+        "category": "AgentLens",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "agentlens.clearActivityFilter",
+        "title": "Clear Activity Filter",
+        "category": "AgentLens",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "agentlens.installClaudeHook",
+        "title": "Install Claude Code Hook",
+        "category": "AgentLens"
+      },
+      {
+        "command": "agentlens.uninstallClaudeHook",
+        "title": "Uninstall Claude Code Hook",
+        "category": "AgentLens"
+      },
+      {
+        "command": "agentlens.sendMockEvent",
+        "title": "Send Mock Pre-edit Event for Active File",
+        "category": "AgentLens"
+      },
+      {
+        "command": "agentlens.checkForUpdates",
+        "title": "Check for Updates",
+        "category": "AgentLens"
+      }
+    ],
+    "configuration": {
+      "title": "AgentLens",
+      "properties": {
+        "agentlens.focusMode": {
+          "type": "string",
+          "enum": ["auto", "notify", "off"],
+          "enumDescriptions": [
+            "Open the file an agent is about to edit as soon as a reliable pre-edit event is received.",
+            "Show a notification with an Open button instead of opening the file.",
+            "Never open files or show notifications. Activity is still recorded."
+          ],
+          "default": "auto",
+          "description": "What AgentLens does when a reliable pre-edit event arrives for a file."
+        },
+        "agentlens.focusCooldownMs": {
+          "type": "integer",
+          "default": 1000,
+          "minimum": 0,
+          "description": "Minimum time between automatic file opens. Requests during the cooldown are collapsed and only the latest file is opened afterwards. 0 disables the cooldown."
+        },
+        "agentlens.ignoredFolders": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [".git", "node_modules"],
+          "description": "Folder names whose files are ignored by the filesystem fallback, at any depth."
+        },
+        "agentlens.checkForUpdates": {
+          "type": "boolean",
+          "default": false,
+          "scope": "application",
+          "description": "Once a day at most, ask GitHub for the latest AgentLens release and tell you when there is a newer one. It is a single anonymous request that sends no workspace data (GitHub sees your IP address). It never downloads or installs anything; VS Code updates extensions itself. Off by default. The command AgentLens: Check for Updates always works when you run it."
+        },
+        "agentlens.maxTabs": {
+          "type": "integer",
+          "default": 5,
+          "minimum": 1,
+          "description": "Target number of open tabs. AgentLens only closes tabs it opened itself, oldest first, and never one that is pinned, unsaved, active or in use by an agent session, so this limit may be exceeded."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "build:test": "node esbuild.mjs --test",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:integration": "npm run build:test && node scripts/run-integration.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.20.5",
+    "@types/vscode": "~1.90.0",
+    "@vscode/test-electron": "^3.1.0",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.1",
+    "vitest": "^5.1.0"
+  }
+}

@@ -82,13 +82,13 @@ An Adapter is responsible for translating Agent-specific events into the shared 
 ```ts
 interface AgentAdapter {
   readonly id: string;
-  start(): Promise<void>;
-  stop(): Promise<void>;
-  onEvent(listener: (event: AgentFileEvent) => void): void;
+  parse(payload: unknown, now: number): AdapterParseResult; // { ok: true, event } | { ok: false, reason, detail }
 }
 ```
 
-This contract is an initial proposal and must be adapted to fit the actual lifecycle and API of each integration.
+Implemented in `src/adapters/adapter.ts`. The first integration showed that an adapter is a pure translator and that the lifecycle (start, stop, listening) belongs to the transport, so the earlier `start`/`stop`/`onEvent` proposal was dropped (ADR-006). `runAdapter` calls `parse` and turns a thrown error or a malformed return value into a `failed` result, which the caller logs; one broken adapter therefore cannot stop the transport or other adapters. The Claude Code adapter is `claudeCodeAdapter`.
+
+Adding an agent means: a parser that implements `AgentAdapter` and never copies file content, a transport the agent actually offers (verified against its documentation), and tests with real payloads.
 
 ## 6. Event Pipeline
 
@@ -104,10 +104,10 @@ This contract is an initial proposal and must be adapted to fit the actual lifec
 ## 7. Focus Controller
 
 Receives only validated events:
-- Check Auto Focus and Pause state.
+- Check the focus mode (`auto`, `notify`, `off`) and Pause state.
 - Determine whether the event warrants a focus action.
 - Queue and debounce.
-- Open the document and show the editor.
+- Open the document and show the editor, or offer it in a notification in `notify` mode.
 - Handle errors such as file missing, permission denied, or unsupported URI.
 
 Filesystem fallback events must never be interpreted as pre-edit events.
@@ -115,7 +115,7 @@ Filesystem fallback events must never be interpreted as pre-edit events.
 ## 8. Tab Controller
 
 Responsible for evaluating which tabs can be safely managed:
-- Check pinned, dirty, active, and agent-owned status.
+- Check pinned, dirty, active, and agent-owned status. Only tabs AgentLens opened are candidates (`OwnedTabs`); `selectTabsToClose` is the pure policy.
 - Use only APIs/commands that actually exist and have been tested.
 - When safety cannot be confirmed, do not close the tab.
 - Keep Tab Management separate from Focus Controller.

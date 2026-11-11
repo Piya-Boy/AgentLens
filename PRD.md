@@ -21,7 +21,7 @@ When an AI Agent operates from Terminal, PowerShell, WSL, or tools outside VS Co
 
 - Not a tool for controlling or commanding AI Agents.
 - Does not read or analyze Source Code for quality assessment.
-- Does not send data to the Cloud.
+- Does not send workspace data to the Cloud. The only network request is the optional update notice (ADR-007), which sends no workspace data.
 - Does not guarantee pre-edit detection for every type of Agent.
 - Does not manage Git workflow on behalf of the user.
 
@@ -88,6 +88,7 @@ Safety rules:
 - Never close a dirty/unsaved tab.
 - Never close the user's active tab.
 - Never close a file an Agent is currently working on.
+- Only close tabs AgentLens itself opened (ADR-005); the user's own tabs are never touched.
 - If no tab can be safely closed, allow exceeding the configured limit.
 - Verify VS Code API constraints before implementing — never claim a general tab-close API exists if it does not.
 

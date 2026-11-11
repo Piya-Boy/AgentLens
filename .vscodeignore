@@ -1,0 +1,8 @@
+**
+!dist/extension.js
+!dist/extension.js.map
+!dist/hook.js
+!package.json
+!media/**
+!README.md
+!LICENSE

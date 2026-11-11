@@ -39,10 +39,57 @@ Records of key decisions made in AgentLens, so that AI and other contributors un
 
 ## ADR-005: Safe Tab Management
 
-**Status:** Proposed
+**Status:** Accepted
 
-**Decision:** Target a default of 5 open tabs, but do not force-close tabs when it is not safe to do so.
+**Decision:** Target a default of 5 open tabs, but do not force-close tabs when it is not safe to do so. AgentLens closes only tabs it opened itself, oldest first, and never one that is pinned, dirty, active, open in more than one tab, or the file an agent session is working on. The limit counts every tab, so it can stay exceeded when nothing is safe to close.
 
-**Reason:** Prevents loss of unsaved work and avoids disrupting the user.
+**Reason:** Prevents loss of unsaved work and avoids disrupting the user. VS Code does not say who opened a tab, so "tabs the user opened" cannot be told apart from "tabs the agent opened" after the fact; recording what AgentLens opened is the only way to leave the user's tabs alone.
 
-**Open question:** VS Code API constraints and the actual method for closing editors automatically must be verified before implementation.
+**Verified API constraints (VS Code 1.145.2 host; `@types/vscode` 1.90):**
+- `window.tabGroups.close(tab | tabs, preserveFocus)` exists and closed the targeted tabs in the integration test.
+- `Tab` exposes `isActive`, `isDirty`, `isPinned`, `isPreview` and, for plain text tabs, the file URI through `TabInputText`. Other tab kinds have no file key and are never closed, but still count toward the limit.
+- Closing a dirty tab opens a confirmation dialog, so dirty tabs are never passed to `close`. A tab that turns dirty between the check and the call is still guarded by that dialog.
+- `preview: true` is ignored when the user disabled preview editors, so every opened file then becomes a permanent tab. That is when trimming matters.
+- The tab model can lag behind `showTextDocument`: the new tab may be missing from `tabGroups` for a moment after the call returns. AgentLens waits up to 1 s for the tab to appear before trimming and forgets an owned tab only after it has been seen and has then gone. One integration run failed intermittently before this was added (the old tab was not closed); the race is the suspected cause and was not reproduced on demand, but four later full runs all passed.
+
+**Consequences:** A file the user already had open is never registered as ours. A file the user later keeps (double-click) stays registered and can still be trimmed unless pinned or edited. The full integration suite (including the tab tests) passes on both the 1.145.2 host and the declared minimum, 1.90.0 (report in `TESTING.md`).
+
+## ADR-006: Adapters Are Parsers, Transports Are Separate
+
+**Status:** Accepted
+
+**Decision:** An adapter implements `parse(payload, now)` and nothing else. Receiving payloads (the hook script and local socket for Claude Code, the file watcher for the fallback) is done by transports that are not part of the adapter contract. Adapters run through `runAdapter`, which converts exceptions and invalid return values into a reported `failed` result.
+
+**Reason:** The initial proposal (`start`, `stop`, `onEvent`) had no second implementation to justify it, and the one real integration needs a transport that is shared plumbing (endpoint, size limits, timeouts), not adapter logic. A pure parser is easy to test with real payloads and cannot touch the file system or VS Code.
+
+**Consequences:** An agent whose events cannot be delivered as a payload to a parser would need a new transport design and a new ADR. Only one adapter exists, so the contract has not been tested against a second agent's shape.
+
+## ADR-007: Update Check Is Notify-Only and Opt-In
+
+**Status:** Accepted
+
+**Decision:** AgentLens does not download or install its own updates. It can compare the installed version with the latest GitHub release of `Piya-Boy/AgentLens` and tell the user, with a button that opens the release page. The command `AgentLens: Check for Updates` always works. The automatic check, `agentlens.checkForUpdates`, is off by default; when on it runs about 10 seconds after start-up, at most once a day (`globalState`), and reports each version once. The request is one anonymous `GET` to `api.github.com` with a user agent, no redirects, a 5 s timeout and a 64 KiB limit. Only `tag_name` is read: it must be a plain `major.minor.patch` (optional leading `v`), and drafts and pre-releases are ignored. The release page link is built from that tag as `https://github.com/Piya-Boy/AgentLens/releases/tag/<tag>`; the response's own URLs are ignored. The setting has `application` scope, so only the user's own settings can turn it on; a repository's `.vscode/settings.json` cannot.
+
+**Reason:** VS Code already updates extensions installed from the Marketplace, so a second installer would add risk without benefit. Fetching and installing code from a network response would turn an extension that today uploads nothing into one that runs downloaded code, and it would need signature checking this project cannot provide. A notice costs one small request and cannot change what runs. It is opt-in because the extension had no network call before, and `SECURITY.md` promised none.
+
+**Consequences:** A VSIX installed by hand still needs a new VSIX. The first network call in `src/` (`src/update/github-fetch.ts`) means the "no network" claim in the docs and the security checklist changed to name that one call. GitHub sees the user's IP address and the extension version in the user agent. Until a release is published the check answers HTTP 404. A Marketplace listing, once it exists, makes the notice mostly redundant, and the setting can then be removed.
+
+## ADR-008: The Hook Entry Points at a Stable Copy of the Script
+
+**Status:** Accepted
+
+**Decision:** The Claude Code hook entry runs `node "<state folder>/hook.js" --agentlens`, where the state folder is the one that already holds the endpoint secret (`%LOCALAPPDATA%\agentlens` on Windows, `$XDG_STATE_HOME/agentlens` or `~/.local/state/agentlens` elsewhere). Each time the extension activates it makes that file an exact copy of its bundled `dist/hook.js`: written whole to a temporary file and renamed into place, left alone when identical, and refused (not written through) when the state folder or the file is a link, not the expected kind, owned by another user, or (Unix) writable by others. Folder and file are both checked because Claude Code runs the script without checking it: anyone who could replace the file or rename another into its folder would run code as the user. The install command deploys the copy first and writes the settings entry only after that succeeded. The extension now activates on `onStartupFinished`; before, nothing started it until the user opened its view.
+
+**Reason:** VS Code puts every extension version in a new folder. An entry that names the bundled script stops working after an update, and because the hook never blocks or reports, nothing shows that it broke. Alternatives rejected: detecting a stale path and asking the user (still silent until the user acts and the prompt appears), rewriting `.claude/settings.local.json` automatically on activation (changes a user's agent configuration in every workspace without confirmation, which `SECURITY.md` forbids), and a stub that searches the extensions folder for the newest version (breaks with `--extensions-dir`, Insiders, portable and remote installs). A copy beside the secret needs no search and no repeated edits.
+
+**Consequences:** The hook entry is written once and stays valid. The script is code that Claude Code runs from a user-level folder instead of from the extension; it has the same trust as the secret beside it (the user's profile rights on Windows, owner and mode checks on Unix). An edited copy is restored on the next activation, but until then it runs; the folder check is what stops a stranger from planting one. A folder that is a link (for example a relocated state folder) is refused, and the user must fix or recreate it. Two editors with different extension versions (for example VS Code and Insiders) share the copy and the one that activated last wins, so the message format must stay compatible across versions. The copy stays after the hook or the extension is uninstalled and sends nothing without a listener. Entries written by builds before this one still name the versioned folder and need one reinstall; no migration is written because no build has been published. Windows replaces a file that another process has open only if that process opened it with delete sharing; if the rename fails and the target already holds the same script (another window just wrote it) that counts as done; otherwise the old copy stays and the error is logged. Activating on startup (a related fix) means every window now starts its listener and file watcher and writes the secret and this copy, also for users who never install the hook.
+
+## ADR-009: Offer the Claude Code Hook on Start-up, Write It Only on a Click
+
+**Status:** Accepted
+
+**Decision:** When a window starts, AgentLens offers once per workspace to install the Claude Code hook. The offer is a normal notification ("Install" and "Don't ask again") that names `.claude/settings.local.json` and says what the hook reports. It appears only when AgentLens is enabled, the workspace is trusted, the first workspace folder is a local folder, the user did not press "Don't ask again" anywhere, the workspace was not asked before, there is a sign of Claude Code (a `.claude` folder or a `CLAUDE.md` in the folder, or a `.claude` folder in the user's home) and the settings file does not already hold the AgentLens hook. A settings file that is not valid JSON gets no offer and a log line. Closing the notification counts as "no" for that workspace; the answer is stored before the notification is shown, so a closed notification never comes back. Pressing "Install" runs the same install as `AgentLens: Install Claude Code Hook` (deploy the stable script copy, check the path, merge one entry) without the modal, because the button is the confirmation. The command keeps its modal.
+
+**Reason:** A user who installed the extension from the Marketplace and used Claude Code saw nothing open, because without the hook AgentLens only records changes after they happen (ADR-003), and nothing told them to run the command (a real report, 2026-11-11; the window's log held 121 filesystem observations and no pre-edit event). The owner asked for it to work right after installing. Alternatives rejected: installing the entry automatically on activation (writes an agent configuration in every workspace without a user action, which `SECURITY.md` forbids and ADR-008 already rejected), keeping only the command (the report above), and opening files for filesystem observations (they arrive after the edit, so the file would not be shown before it changes, and it would open files for every tool and for the user's own saves).
+
+**Consequences:** Setup is one click on the first start in each workspace where Claude Code is likely in use. A user whose project has no `.claude` folder or `CLAUDE.md` and has no `~/.claude` folder is not asked and must run the command. The evidence is a guess from file names, not proof that Claude Code is used. The notification shows a shorter text than the modal (the modal also lists the exact command); the file and what the hook reports are in both. Whether a Claude Code session that was already open picks up a new hook entry was not confirmed in the documentation, so the success message tells the user to restart a session if files do not open.

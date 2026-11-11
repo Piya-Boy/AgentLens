@@ -1,0 +1,1 @@
+third fixture file for AgentLens integration tests
