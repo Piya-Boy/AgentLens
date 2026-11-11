@@ -82,7 +82,7 @@ The one thing AgentLens can do is tell you that a newer release exists:
 - `agentlens.checkForUpdates` (default `false`) does the same automatically, about 10 seconds after start-up and at most once a day, and tells you about each new version once. Only your user settings can turn it on; a repository's `.vscode/settings.json` cannot.
 - Each check is one anonymous `GET` of the latest release of `Piya-Boy/AgentLens` on `api.github.com`. It sends no workspace data, only a user agent with the extension version; GitHub sees your IP address. Redirects are refused, the answer is limited to 64 KiB and only the version tag is read; the release page link is built from it.
 - It never downloads or installs anything. Drafts and pre-releases are ignored.
-- The repository has no published release yet. GitHub answers HTTP 404 (checked on 2026-11-09), so running the command today shows "could not check for updates (the server answered HTTP 404)".
+- The latest release is [v0.0.2](https://github.com/Piya-Boy/AgentLens/releases/tag/v0.0.2). On 2026-11-11 an anonymous request to the endpoint answered HTTP 200 with that tag (checked with curl, not by running the command in VS Code), so version 0.0.2 should report that it is up to date.
 
 ## Status
 
