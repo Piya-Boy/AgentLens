@@ -18,7 +18,7 @@ How to read the status words:
 ## Claude Code — implemented
 
 - Event: `PreToolUse` for `Edit` and `Write`. **Verified** with Claude Code 2.1.319: it fired 63 ms before the file was created; the payload has `tool_input.file_path` (absolute), `session_id`, `tool_use_id` (see `TESTING.md`).
-- Install: `AgentLens: Install Claude Code Hook` writes `.claude/settings.local.json` after a modal confirmation.
+- Install: `AgentLens: Install Claude Code Hook` writes `.claude/settings.local.json` after a modal confirmation. On start-up AgentLens also offers to install it once per workspace when Claude Code looks to be in use; the Install button of that offer is the confirmation (ADR-009).
 - Transport: Node hook script, then a per-user local socket.
 
 ## Codex (OpenAI)

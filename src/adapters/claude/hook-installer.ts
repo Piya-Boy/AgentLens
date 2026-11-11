@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { lstat, mkdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import nodePath from "node:path";
-import { addHook, removeHook, type SettingsEdit } from "./hook-settings";
+import { addHook, hasHook, removeHook, type SettingsEdit } from "./hook-settings";
 
 export type InstallResult =
   | { readonly ok: true; readonly changed: boolean }
@@ -104,6 +104,25 @@ async function applyEdit(
   }
   await writeAtomically(settingsPath, result.settings);
   return { ok: true, changed: true };
+}
+
+export type HookStatus =
+  | { readonly kind: "installed" }
+  | { readonly kind: "missing" }
+  | { readonly kind: "unreadable"; readonly reason: string };
+
+/** Read-only: tells whether the AgentLens hook is in the settings file. Never writes or creates anything. */
+export async function inspectHook(settingsPath: string): Promise<HookStatus> {
+  let current: Awaited<ReturnType<typeof readSettings>>;
+  try {
+    current = await readSettings(settingsPath);
+  } catch (error) {
+    return { kind: "unreadable", reason: `${settingsPath} could not be read (${error instanceof Error ? error.message : String(error)})` };
+  }
+  if (typeof current === "string") {
+    return { kind: "unreadable", reason: current };
+  }
+  return hasHook(current.value) ? { kind: "installed" } : { kind: "missing" };
 }
 
 export function installHook(settingsPath: string, hookCommand: string): Promise<InstallResult> {

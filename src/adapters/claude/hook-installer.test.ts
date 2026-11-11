@@ -2,7 +2,7 @@ import { mkdtemp, readFile, readdir, rm, writeFile, mkdir } from "node:fs/promis
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { installHook, uninstallHook } from "./hook-installer";
+import { inspectHook, installHook, uninstallHook } from "./hook-installer";
 import { buildHookCommand } from "./hook-settings";
 
 let base: string;
@@ -107,5 +107,43 @@ describe("uninstallHook", () => {
     await writeFile(file, "nope");
     expect(await uninstallHook(file)).toMatchObject({ ok: false });
     expect(await readFile(file, "utf8")).toBe("nope");
+  });
+});
+
+describe("inspectHook", () => {
+  it("reports a missing file as missing and does not create it", async () => {
+    const settingsPath = newSettingsPath();
+    expect(await inspectHook(settingsPath)).toEqual({ kind: "missing" });
+    expect(await readdir(path.dirname(path.dirname(settingsPath))).catch(() => [])).toEqual([]);
+  });
+
+  it("reports settings without our hook as missing", async () => {
+    const settingsPath = newSettingsPath();
+    await mkdir(path.dirname(settingsPath), { recursive: true });
+    await writeFile(settingsPath, JSON.stringify({ permissions: { allow: ["Bash(ls)"] } }));
+    expect(await inspectHook(settingsPath)).toEqual({ kind: "missing" });
+  });
+
+  it("reports installed after installHook and missing after uninstallHook", async () => {
+    const settingsPath = newSettingsPath();
+    await installHook(settingsPath, command);
+    expect(await inspectHook(settingsPath)).toEqual({ kind: "installed" });
+    await uninstallHook(settingsPath);
+    expect(await inspectHook(settingsPath)).toEqual({ kind: "missing" });
+  });
+
+  it("reports invalid JSON as unreadable and leaves the file alone", async () => {
+    const settingsPath = newSettingsPath();
+    await mkdir(path.dirname(settingsPath), { recursive: true });
+    await writeFile(settingsPath, "{ not json");
+    const status = await inspectHook(settingsPath);
+    expect(status.kind).toBe("unreadable");
+    expect(await readFile(settingsPath, "utf8")).toBe("{ not json");
+  });
+
+  it("reports a settings path that is a directory as unreadable instead of throwing", async () => {
+    const settingsPath = newSettingsPath();
+    await mkdir(settingsPath, { recursive: true });
+    expect((await inspectHook(settingsPath)).kind).toBe("unreadable");
   });
 });

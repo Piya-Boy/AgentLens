@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HOOK_MATCHER, addHook, buildHookCommand, removeHook } from "./hook-settings";
+import { HOOK_MATCHER, addHook, buildHookCommand, hasHook, removeHook } from "./hook-settings";
 
 const command = buildHookCommand("C:\\Users\\me\\.vscode\\extensions\\agentlens-0.0.1\\dist\\hook.js");
 
@@ -112,5 +112,35 @@ describe("removeHook", () => {
       ok: false,
       error: "settings.hooks.PreToolUse must be an array",
     });
+  });
+});
+
+describe("hasHook", () => {
+  it("is false for empty settings and for settings that cannot hold a hook", () => {
+    expect(hasHook({})).toBe(false);
+    expect(hasHook({ hooks: {} })).toBe(false);
+    expect(hasHook({ hooks: { PreToolUse: "nope" } })).toBe(false);
+    expect(hasHook(null)).toBe(false);
+    expect(hasHook([])).toBe(false);
+  });
+
+  it("is false when only other hooks exist", () => {
+    expect(hasHook({ hooks: { PreToolUse: [other] } })).toBe(false);
+  });
+
+  it("is true for an entry written by addHook, also next to other hooks", () => {
+    const added = ok(addHook({ hooks: { PreToolUse: [other] } }, command));
+    expect(hasHook(added.settings)).toBe(true);
+  });
+
+  it("is false again after removeHook", () => {
+    const added = ok(addHook({}, command));
+    const removed = ok(removeHook(added.settings));
+    expect(hasHook(removed.settings)).toBe(false);
+  });
+
+  it("finds our handler inside a group the user shares with another handler", () => {
+    const shared = { matcher: "Edit", hooks: [{ type: "command", command: "./fmt.sh" }, { type: "command", command }] };
+    expect(hasHook({ hooks: { PreToolUse: [shared] } })).toBe(true);
   });
 });

@@ -65,6 +65,20 @@ function finish(before: JsonObject, after: JsonObject): SettingsEdit {
   return { ok: true, settings: after, changed: JSON.stringify(before) !== JSON.stringify(after) };
 }
 
+/** True when `settings` already holds an AgentLens PreToolUse handler. Never throws on odd shapes. */
+export function hasHook(settings: unknown): boolean {
+  if (!isObject(settings)) {
+    return false;
+  }
+  const current = readPreToolUse(settings);
+  if (typeof current === "string") {
+    return false;
+  }
+  return current.groups.some(
+    (group) => isObject(group) && Array.isArray(group.hooks) && group.hooks.some((handler: unknown) => isOurHandler(handler)),
+  );
+}
+
 /** Adds or refreshes the AgentLens PreToolUse hook and leaves every other entry untouched. */
 export function addHook(settings: unknown, command: string): SettingsEdit {
   if (!isObject(settings)) {

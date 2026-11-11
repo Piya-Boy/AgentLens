@@ -59,9 +59,11 @@ The enabled/disabled state is stored in the workspace's `workspaceState`, so Age
 
 AgentLens learns about edits before they happen through a Claude Code `PreToolUse` hook (`Edit` and `Write`).
 
-1. Open your project folder in VS Code.
-2. Run `AgentLens: Install Claude Code Hook` and confirm. It merges one entry into `.claude/settings.local.json` of the first workspace folder and keeps everything else.
-3. Start Claude Code in that folder, including from an external terminal. Files it is about to edit open in a preview tab.
+1. Open your project folder in VS Code. If Claude Code looks to be in use (a `.claude` folder or `CLAUDE.md` in the project, or a `.claude` folder in your home folder), AgentLens asks once per workspace whether to add its hook. Press Install. Nothing is written unless you press it; closing the notice or pressing Don't ask again writes nothing.
+2. To do it by hand or later, run `AgentLens: Install Claude Code Hook` and confirm. It merges one entry into `.claude/settings.local.json` of the first workspace folder and keeps everything else.
+3. Start Claude Code in that folder, including from an external terminal. Files it is about to edit open in a preview tab. A session that was already open may not see the new hook; restart it if files do not open.
+
+Without the hook AgentLens only records changes after they happen (a fallback) and opens nothing.
 
 - The hook is a small `node` script, so `node` must be on your PATH. It never blocks Claude Code, always exits 0 and prints nothing. The installed entry does not point into the extension's folder, which changes with every version. It points at a copy that AgentLens keeps at `%LOCALAPPDATA%\agentlens\hook.js` (Windows) or `~/.local/state/agentlens/hook.js` (Unix), next to the endpoint secret.
 - It sends only the file path, session id, tool name and working directory to this VS Code window over a local socket (a named pipe on Windows) whose name is derived from a random per-user secret kept in `%LOCALAPPDATA%\agentlens\endpoint-secret` (Windows, protected by the access rights of your user profile) or `~/.local/state/agentlens/endpoint-secret` (Unix, mode 0600 and owner checked); the hook sends nothing if that file does not exist. File contents are dropped before leaving the hook. The hook does not use the network.

@@ -879,6 +879,53 @@ const cases: readonly TestCase[] = [
       assert.equal(vscode.workspace.getConfiguration("agentlens").get("checkForUpdates"), false);
     },
   },
+  {
+    name: "offers the Claude Code hook, writes it only when the user presses Install and then recognises it",
+    run: async (api) => {
+      const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      assert.ok(folder, "fixture workspace is not open");
+      const claudeFolder = path.join(folder, ".claude");
+      const settingsFile = path.join(claudeFolder, "settings.local.json");
+      const marker = path.join(folder, "CLAUDE.md");
+      const window = vscode.window as { showInformationMessage: unknown };
+      const original = window.showInformationMessage;
+      const questions: string[] = [];
+      let answer: string | undefined;
+      window.showInformationMessage = (message: string): Promise<string | undefined> => {
+        questions.push(message);
+        return Promise.resolve(answer);
+      };
+      try {
+        await fs.writeFile(marker, "# project notes\n", "utf8");
+
+        answer = undefined;
+        assert.equal(await api.offerClaudeHook(true), "declined");
+        assert.equal(questions.length, 1);
+        assert.match(questions[0] ?? "", /\.claude\/settings\.local\.json/);
+        await assert.rejects(fs.stat(settingsFile), "closing the question must not write the settings file");
+
+        answer = "Install";
+        assert.equal(await api.offerClaudeHook(true), "installed");
+        const settings = JSON.parse(await fs.readFile(settingsFile, "utf8")) as {
+          hooks?: { PreToolUse?: { matcher?: string; hooks?: { command?: string }[] }[] };
+        };
+        const handlers = (settings.hooks?.PreToolUse ?? []).flatMap((group) => group.hooks ?? []);
+        const expected = `node "${api.hookScriptPath().replaceAll("\\", "/")}" --agentlens`;
+        assert.ok(
+          handlers.some((handler) => handler.command === expected),
+          `settings should name the stable hook copy: ${JSON.stringify(settings)}`,
+        );
+
+        const asked = questions.length;
+        assert.equal(await api.offerClaudeHook(true), "already-installed");
+        assert.equal(questions.length, asked, "an installed hook must not be offered again");
+      } finally {
+        window.showInformationMessage = original;
+        await fs.rm(claudeFolder, { recursive: true, force: true });
+        await fs.rm(marker, { force: true });
+      }
+    },
+  },
 ];
 
 export async function run(): Promise<void> {

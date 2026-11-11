@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { stat } from "node:fs/promises";
+import os from "node:os";
 import nodePath from "node:path";
 import * as vscode from "vscode";
 import { readConfig } from "./config";
@@ -23,13 +25,15 @@ import { EventManager, type IngestResult } from "./core/event-manager";
 import { safeLogText } from "./core/log-text";
 import { createMockEvent } from "./core/mock-event";
 import { runAdapter } from "./adapters/adapter";
+import { inspectHook } from "./adapters/claude/hook-installer";
+import { runHookOffer, type HookOfferOutcome } from "./adapters/claude/hook-offer";
 import { claudeCodeAdapter } from "./adapters/claude/pre-tool-use";
 import type { AgentFileEvent } from "./models/agent-file-event";
 import { SessionManager, type SessionInfo } from "./core/session-manager";
 import { deployHookScript, stableHookPath } from "./hook/hook-deployment";
 import { secretLocationFromProcess } from "./transport/endpoint-secret";
 import { HookListener } from "./transport/hook-listener";
-import { registerHookCommands } from "./ui/hook-commands";
+import { installHookInWorkspace, registerHookCommands } from "./ui/hook-commands";
 import { registerUi } from "./ui/register-ui";
 import { presentUpdate, registerUpdateCommand } from "./ui/update-commands";
 import { fetchJson } from "./update/github-fetch";
@@ -47,9 +51,25 @@ export interface AgentLensApi {
   activityFilter(): ActivityFilter;
   hookEndpoints(): readonly string[];
   hookScriptPath(): string;
+  /** Runs the Claude Code hook offer now. `repeat` asks again in a workspace that was already asked. */
+  offerClaudeHook(repeat?: boolean): Promise<HookOfferOutcome>;
 }
 
 const UPDATE_CHECK_DELAY_MS = 10_000;
+const HOOK_OFFER_SHOWN_KEY = "agentlens.hookOffer.shown";
+const HOOK_OFFER_OPT_OUT_KEY = "agentlens.hookOffer.optOut";
+
+async function pathExists(target: string): Promise<boolean> {
+  try {
+    await stat(target);
+    return true;
+  } catch (error) {
+    if (error instanceof Error && "code" in error && (error as NodeJS.ErrnoException).code === "ENOENT") {
+      return false;
+    }
+    throw error;
+  }
+}
 
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -169,6 +189,31 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     return ingest(createMockEvent(target, Date.now(), randomUUID()));
   };
 
+  const offerClaudeHook = (repeat = false): Promise<HookOfferOutcome> =>
+    runHookOffer(
+      {
+        isEnabled: () => enabledState.isEnabled,
+        isTrusted: () => vscode.workspace.isTrusted,
+        folder: vscode.workspace.workspaceFolders?.find((candidate) => candidate.uri.scheme === "file")?.uri.fsPath,
+        homeFolder: os.homedir(),
+        pathExists,
+        inspect: inspectHook,
+        store: {
+          isOptedOut: () => context.globalState.get<boolean>(HOOK_OFFER_OPT_OUT_KEY) === true,
+          wasOfferedHere: () => context.workspaceState.get<boolean>(HOOK_OFFER_SHOWN_KEY) === true,
+          markOfferedHere: () => Promise.resolve(context.workspaceState.update(HOOK_OFFER_SHOWN_KEY, true)),
+          optOut: () => Promise.resolve(context.globalState.update(HOOK_OFFER_OPT_OUT_KEY, true)),
+        },
+        ask: (message, install, never) => Promise.resolve(vscode.window.showInformationMessage(message, install, never)),
+        install: async () => {
+          const result = await installHookInWorkspace(deployHook, { appendLine: log }, false);
+          return result === "installed" || result === "unchanged";
+        },
+        log,
+      },
+      { repeat },
+    );
+
   const installedVersion = String((context.extension.packageJSON as { version?: unknown }).version);
   const updateChecker = new UpdateChecker({
     currentVersion: installedVersion,
@@ -237,6 +282,14 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     `Activated (${enabledState.isEnabled ? "enabled" : "disabled"}, focusMode=${config.focusMode}, maxTabs=${String(config.maxTabs)})`,
   );
 
+  offerClaudeHook()
+    .then((outcome) => {
+      log(`Claude Code hook offer: ${outcome}`);
+    })
+    .catch((error: unknown) => {
+      log(`Claude Code hook offer failed: ${describeError(error)}`);
+    });
+
   return {
     isEnabled: () => enabledState.isEnabled,
     isPaused: () => pauseState.isPaused,
@@ -245,6 +298,7 @@ export function activate(context: vscode.ExtensionContext): AgentLensApi {
     activityFilter: () => filterState.filter,
     hookEndpoints: () => hookListener.endpoints(),
     hookScriptPath: () => hookScriptPath,
+    offerClaudeHook,
   };
 }
 
